@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { and, desc, eq, inArray, lt, sql } from "drizzle-orm";
+import { and, desc, eq, lt, sql, type SQL } from "drizzle-orm";
 import { db, schema } from "../db/client";
 import { toFeedCard, toDetail, type FeedRow } from "./serialize";
 
@@ -8,14 +8,6 @@ const { tradeIdeas, routes, routePricing, rawPosts, sources } = schema;
 
 const app = new Hono();
 app.use("/api/*", cors());
-
-// tab → instrument(s)
-const TAB_INSTRUMENTS: Record<string, string[]> = {
-  perps: ["perp"],
-  stocks: ["shares"],
-  tokens: ["spot"],
-  markets: ["prediction"],
-};
 
 const baseSelect = {
   idea: tradeIdeas,
@@ -25,16 +17,30 @@ const baseSelect = {
   source: sources,
 };
 
+function tabFilter(tab: string): SQL | undefined {
+  switch (tab) {
+    case "perps":
+      return sql`${routes.instrument} = 'perp' and ${routes.ticker} not like 'xyz:%'`;
+    case "stocks":
+      return sql`${routes.instrument} = 'shares' or ${routes.ticker} like 'xyz:%'`;
+    case "tokens":
+      return eq(routes.instrument, "spot");
+    case "markets":
+      return eq(routes.instrument, "prediction");
+    default:
+      return undefined;
+  }
+}
+
 /** GET /api/ideas?tab=all|perps|stocks|tokens&limit=&cursor=<ISO postedAt> */
 app.get("/api/ideas", async (c) => {
   const tab = (c.req.query("tab") ?? "all").toLowerCase();
   const limit = Math.min(Number(c.req.query("limit") ?? 30), 100);
   const cursor = c.req.query("cursor");
 
-  const filters = [eq(routes.status, "routed")];
-  if (tab !== "all" && TAB_INSTRUMENTS[tab]) {
-    filters.push(inArray(routes.instrument, TAB_INSTRUMENTS[tab] as any));
-  }
+  const filters: SQL[] = [eq(routes.status, "routed")];
+  const routeTab = tabFilter(tab);
+  if (routeTab) filters.push(routeTab);
   if (cursor) filters.push(lt(tradeIdeas.postedAt, new Date(cursor)));
 
   const rows = (await db

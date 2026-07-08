@@ -135,11 +135,16 @@ async function gatherCandidates(idea: ExtractedIdea): Promise<VenueCandidate[]> 
           }
         } else {
           // Equity/ETF/commodity/fx — try HL synthetic stock perps too (they
-          // exist on builder dexes), then Polygon shares.
+          // exist on builder dexes). If a perp exists, use it as the direct
+          // expression; Polygon shares are only the fallback for tickers HL
+          // does not list.
           const perp = await hl.searchPerp(ticker, dir);
-          if (perp) out.push(perp);
-          const shares = await polygon.validateTicker(ticker, dir);
-          if (shares) out.push(shares);
+          if (perp) {
+            out.push(perp);
+          } else {
+            const shares = await polygon.validateTicker(ticker, dir);
+            if (shares) out.push(shares);
+          }
         }
       } catch (err) {
         console.warn(`[route] candidate ${ticker} failed: ${err instanceof Error ? err.message : err}`);

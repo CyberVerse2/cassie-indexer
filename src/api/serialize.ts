@@ -18,14 +18,6 @@ export interface FeedRow {
   source: SourceRow | null;
 }
 
-// instrument → feed tab bucket
-const CATEGORY: Record<string, string> = {
-  perp: "perps",
-  shares: "stocks",
-  spot: "tokens",
-  prediction: "markets",
-};
-
 const VENUE_LABEL: Record<string, string> = {
   hyperliquid: "HYPERLIQUID",
   equity: "STOCKS",
@@ -37,6 +29,14 @@ function bareTicker(ticker: string | null): string {
   if (!ticker) return "";
   // strip builder-dex namespace ("xyz:INTC" → "INTC")
   return (ticker.includes(":") ? ticker.split(":").pop()! : ticker).toUpperCase();
+}
+
+function category(route: RouteRow): string {
+  if (route.ticker?.startsWith("xyz:")) return "stocks";
+  if (route.instrument === "perp") return "perps";
+  if (route.instrument === "shares") return "stocks";
+  if (route.instrument === "spot") return "tokens";
+  return "markets";
 }
 
 type PmMeta = { question?: string; slug?: string; eventSlug?: string; icon?: string };
@@ -118,7 +118,7 @@ export async function toFeedCard(row: FeedRow) {
     venue: route.venue,
     venueLabel: route.venue ? VENUE_LABEL[route.venue] ?? route.venue.toUpperCase() : "—",
     instrument: route.instrument,
-    category: route.instrument ? CATEGORY[route.instrument] ?? "markets" : "markets",
+    category: category(route),
     ticker: displayTicker(route),
     direction: route.direction,
     tradeType: route.tradeType,
