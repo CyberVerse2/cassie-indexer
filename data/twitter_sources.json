@@ -1,0 +1,1043 @@
+[
+  {
+    "handle": "MoneyPrinter0x",
+    "name": "MP",
+    "platform": "x",
+    "profile_url": "https://x.com/MoneyPrinter0x",
+    "tracked": true,
+    "source_count": 166,
+    "first_seen": "2026-06-17T22:05:10.000Z",
+    "last_seen": "2026-07-03T21:31:59.000Z",
+    "shows": [
+      "tweets"
+    ]
+  },
+  {
+    "handle": "RJCcapital",
+    "name": "RJC",
+    "platform": "x",
+    "profile_url": "https://x.com/RJCcapital",
+    "tracked": true,
+    "source_count": 148,
+    "first_seen": "2026-06-18T17:01:55.000Z",
+    "last_seen": "2026-07-03T15:11:10.000Z",
+    "shows": [
+      "tweets"
+    ]
+  },
+  {
+    "handle": "zephyr_z9",
+    "name": "Zephyr",
+    "platform": "x",
+    "profile_url": "https://x.com/zephyr_z9",
+    "tracked": true,
+    "source_count": 122,
+    "first_seen": "2026-06-19T09:54:28.000Z",
+    "last_seen": "2026-07-04T04:10:04.000Z",
+    "shows": [
+      "tweets"
+    ]
+  },
+  {
+    "handle": "tradfi",
+    "name": "tradfi news",
+    "platform": "x",
+    "profile_url": "https://x.com/tradfi",
+    "tracked": true,
+    "source_count": 86,
+    "first_seen": "2026-06-18T20:32:28.000Z",
+    "last_seen": "2026-07-02T21:50:01.000Z",
+    "shows": [
+      "tweets"
+    ]
+  },
+  {
+    "handle": "pequityresearch",
+    "name": "P Equity Research 📰",
+    "platform": "x",
+    "profile_url": "https://x.com/pequityresearch",
+    "tracked": true,
+    "source_count": 78,
+    "first_seen": "2026-06-16T19:24:25.000Z",
+    "last_seen": "2026-07-04T02:26:15.000Z",
+    "shows": [
+      "tweets"
+    ]
+  },
+  {
+    "handle": "au_xbt",
+    "name": "AU🧲",
+    "platform": "x",
+    "profile_url": "https://x.com/au_xbt",
+    "tracked": true,
+    "source_count": 69,
+    "first_seen": "2026-06-19T12:22:18.000Z",
+    "last_seen": "2026-07-03T15:03:16.000Z",
+    "shows": [
+      "tweets"
+    ]
+  },
+  {
+    "handle": "damnang2",
+    "name": "Damnang2",
+    "platform": "x",
+    "profile_url": "https://x.com/damnang2",
+    "tracked": true,
+    "source_count": 69,
+    "first_seen": "2026-06-20T08:37:56.000Z",
+    "last_seen": "2026-07-04T06:14:28.000Z",
+    "shows": [
+      "tweets"
+    ]
+  },
+  {
+    "handle": "bubbleboi",
+    "name": "bubble boi",
+    "platform": "x",
+    "profile_url": "https://x.com/bubbleboi",
+    "tracked": true,
+    "source_count": 66,
+    "first_seen": "2026-06-18T19:44:57.000Z",
+    "last_seen": "2026-07-04T04:26:56.000Z",
+    "shows": [
+      "tweets"
+    ]
+  },
+  {
+    "handle": "jukan05",
+    "name": "Jukan",
+    "platform": "x",
+    "profile_url": "https://x.com/jukan05",
+    "tracked": true,
+    "source_count": 61,
+    "first_seen": "2026-06-18T15:53:15.000Z",
+    "last_seen": "2026-06-25T23:11:05.000Z",
+    "shows": [
+      "tweets"
+    ]
+  },
+  {
+    "handle": "ContrarianCurse",
+    "name": "SuspendedCap",
+    "platform": "x",
+    "profile_url": "https://x.com/ContrarianCurse",
+    "tracked": true,
+    "source_count": 54,
+    "first_seen": "2026-06-18T16:36:16.000Z",
+    "last_seen": "2026-07-04T02:25:56.000Z",
+    "shows": [
+      "tweets"
+    ]
+  },
+  {
+    "handle": "negligible_cap",
+    "name": "Negligible Capital",
+    "platform": "x",
+    "profile_url": "https://x.com/negligible_cap",
+    "tracked": true,
+    "source_count": 53,
+    "first_seen": "2026-06-27T03:07:34.000Z",
+    "last_seen": "2026-07-03T13:37:04.000Z",
+    "shows": [
+      "tweets"
+    ]
+  },
+  {
+    "handle": "aleabitoreddit",
+    "name": "Serenity",
+    "platform": "x",
+    "profile_url": "https://x.com/aleabitoreddit",
+    "tracked": true,
+    "source_count": 47,
+    "first_seen": "2026-06-18T14:54:06.000Z",
+    "last_seen": "2026-07-04T00:07:23.000Z",
+    "shows": [
+      "tweets"
+    ]
+  },
+  {
+    "handle": "degentradingLSD",
+    "name": "degentrading",
+    "platform": "x",
+    "profile_url": "https://x.com/degentradingLSD",
+    "tracked": true,
+    "source_count": 46,
+    "first_seen": "2026-06-22T06:26:33.000Z",
+    "last_seen": "2026-07-04T03:16:19.000Z",
+    "shows": [
+      "tweets"
+    ]
+  },
+  {
+    "handle": "SemiAnalysis_",
+    "name": "SemiAnalysis",
+    "platform": "x",
+    "profile_url": "https://x.com/SemiAnalysis_",
+    "tracked": true,
+    "source_count": 41,
+    "first_seen": "2026-06-19T04:00:26.000Z",
+    "last_seen": "2026-07-03T17:01:40.000Z",
+    "shows": [
+      "tweets"
+    ]
+  },
+  {
+    "handle": "HiCagr",
+    "name": "high cagr",
+    "platform": "x",
+    "profile_url": "https://x.com/HiCagr",
+    "tracked": true,
+    "source_count": 34,
+    "first_seen": "2026-06-28T18:56:05.000Z",
+    "last_seen": "2026-07-04T03:38:43.000Z",
+    "shows": [
+      "tweets"
+    ]
+  },
+  {
+    "handle": "KobeissiLetter",
+    "name": "The Kobeissi Letter",
+    "platform": "x",
+    "profile_url": "https://x.com/KobeissiLetter",
+    "tracked": true,
+    "source_count": 34,
+    "first_seen": "2026-06-17T01:18:16.000Z",
+    "last_seen": "2026-07-01T16:31:57.000Z",
+    "shows": [
+      "tweets"
+    ]
+  },
+  {
+    "handle": "crypto_condom",
+    "name": "CryptoCondom",
+    "platform": "x",
+    "profile_url": "https://x.com/crypto_condom",
+    "tracked": true,
+    "source_count": 29,
+    "first_seen": "2026-06-25T19:33:58.000Z",
+    "last_seen": "2026-07-03T20:39:02.000Z",
+    "shows": [
+      "tweets"
+    ]
+  },
+  {
+    "handle": "BenBajarin",
+    "name": "Ben Bajarin",
+    "platform": "x",
+    "profile_url": "https://x.com/BenBajarin",
+    "tracked": true,
+    "source_count": 27,
+    "first_seen": "2026-06-23T15:49:26.000Z",
+    "last_seen": "2026-07-02T17:02:45.000Z",
+    "shows": [
+      "tweets"
+    ]
+  },
+  {
+    "handle": "zerohedge",
+    "name": "zerohedge",
+    "platform": "x",
+    "profile_url": "https://x.com/zerohedge",
+    "tracked": true,
+    "source_count": 27,
+    "first_seen": "2026-06-18T13:47:55.000Z",
+    "last_seen": "2026-06-19T12:54:36.000Z",
+    "shows": [
+      "tweets"
+    ]
+  },
+  {
+    "handle": "dnystedt",
+    "name": null,
+    "platform": "x",
+    "profile_url": "https://x.com/dnystedt",
+    "tracked": true,
+    "source_count": 26,
+    "first_seen": "2026-06-22T00:52:24.000Z",
+    "last_seen": "2026-06-26T01:32:37.000Z",
+    "shows": [
+      "tweets"
+    ]
+  },
+  {
+    "handle": "michaeljburry",
+    "name": "Cassandra Unchained",
+    "platform": "x",
+    "profile_url": "https://x.com/michaeljburry",
+    "tracked": true,
+    "source_count": 25,
+    "first_seen": "2026-06-25T16:08:32.000Z",
+    "last_seen": "2026-07-04T04:44:51.000Z",
+    "shows": [
+      "tweets"
+    ]
+  },
+  {
+    "handle": "goodalexander",
+    "name": "goodalexander",
+    "platform": "x",
+    "profile_url": "https://x.com/goodalexander",
+    "tracked": true,
+    "source_count": 24,
+    "first_seen": "2026-06-18T12:37:57.000Z",
+    "last_seen": "2026-07-03T13:11:43.000Z",
+    "shows": [
+      "tweets"
+    ]
+  },
+  {
+    "handle": "TylerDurden",
+    "name": null,
+    "platform": "x",
+    "profile_url": "https://x.com/TylerDurden",
+    "tracked": true,
+    "source_count": 24,
+    "first_seen": "2026-06-18T14:25:07.000Z",
+    "last_seen": "2026-06-19T12:52:06.000Z",
+    "shows": [
+      "tweets"
+    ]
+  },
+  {
+    "handle": "chamath",
+    "name": "Chamath Palihapitiya",
+    "platform": "x",
+    "profile_url": "https://x.com/chamath",
+    "tracked": true,
+    "source_count": 21,
+    "first_seen": "2026-06-13T22:33:30.000Z",
+    "last_seen": "2026-07-03T13:55:01.000Z",
+    "shows": [
+      "tweets"
+    ]
+  },
+  {
+    "handle": "MartinShkreli",
+    "name": "Martin Shkreli",
+    "platform": "x",
+    "profile_url": "https://x.com/MartinShkreli",
+    "tracked": true,
+    "source_count": 18,
+    "first_seen": "2026-06-22T23:59:13.000Z",
+    "last_seen": "2026-07-03T17:28:44.000Z",
+    "shows": [
+      "shkreli",
+      "tweets"
+    ]
+  },
+  {
+    "handle": "atelicinvest",
+    "name": "Unemployed Capital Allocator",
+    "platform": "x",
+    "profile_url": "https://x.com/atelicinvest",
+    "tracked": true,
+    "source_count": 17,
+    "first_seen": "2026-06-19T00:54:00.000Z",
+    "last_seen": "2026-07-01T23:37:22.000Z",
+    "shows": [
+      "tweets"
+    ]
+  },
+  {
+    "handle": "citrini",
+    "name": "Citrini",
+    "platform": "x",
+    "profile_url": "https://x.com/citrini",
+    "tracked": true,
+    "source_count": 17,
+    "first_seen": "2026-02-13T05:56:18.000Z",
+    "last_seen": "2026-07-02T22:41:30.000Z",
+    "shows": [
+      "tweets"
+    ]
+  },
+  {
+    "handle": "labubu_trader",
+    "name": "3X Long Labubu",
+    "platform": "x",
+    "profile_url": "https://x.com/labubu_trader",
+    "tracked": true,
+    "source_count": 16,
+    "first_seen": "2026-06-18T18:59:31.000Z",
+    "last_seen": "2026-06-27T19:12:34.000Z",
+    "shows": [
+      "tweets"
+    ]
+  },
+  {
+    "handle": "CapitalShipyard",
+    "name": "Shipyard Capital",
+    "platform": "x",
+    "profile_url": "https://x.com/CapitalShipyard",
+    "tracked": true,
+    "source_count": 14,
+    "first_seen": "2026-06-28T14:32:53.000Z",
+    "last_seen": "2026-07-02T21:43:49.000Z",
+    "shows": [
+      "tweets"
+    ]
+  },
+  {
+    "handle": "DivesTech",
+    "name": "Dan Ives",
+    "platform": "x",
+    "profile_url": "https://x.com/DivesTech",
+    "tracked": true,
+    "source_count": 14,
+    "first_seen": "2026-06-23T10:48:21.000Z",
+    "last_seen": "2026-06-30T22:51:24.000Z",
+    "shows": [
+      "tweets"
+    ]
+  },
+  {
+    "handle": "TheShortBear",
+    "name": "THE SHORT BEAR",
+    "platform": "x",
+    "profile_url": "https://x.com/TheShortBear",
+    "tracked": true,
+    "source_count": 14,
+    "first_seen": "2026-06-17T22:28:54.000Z",
+    "last_seen": "2026-07-03T18:03:50.000Z",
+    "shows": [
+      "tweets"
+    ]
+  },
+  {
+    "handle": "BillAckman",
+    "name": "Bill Ackman",
+    "platform": "x",
+    "profile_url": "https://x.com/BillAckman",
+    "tracked": true,
+    "source_count": 12,
+    "first_seen": "2026-06-24T21:57:50.000Z",
+    "last_seen": "2026-07-02T20:25:27.000Z",
+    "shows": [
+      "tweets"
+    ]
+  },
+  {
+    "handle": "adamfeuerstein",
+    "name": "Adam Feuerstein ✡️",
+    "platform": "x",
+    "profile_url": "https://x.com/adamfeuerstein",
+    "tracked": true,
+    "source_count": 11,
+    "first_seen": "2026-06-26T12:56:12.000Z",
+    "last_seen": "2026-07-02T12:54:53.000Z",
+    "shows": [
+      "tweets"
+    ]
+  },
+  {
+    "handle": "markminervini",
+    "name": "Mark Minervini",
+    "platform": "x",
+    "profile_url": "https://x.com/markminervini",
+    "tracked": true,
+    "source_count": 10,
+    "first_seen": "2026-06-22T14:12:48.000Z",
+    "last_seen": "2026-07-02T21:16:22.000Z",
+    "shows": [
+      "tweets"
+    ]
+  },
+  {
+    "handle": "based16z",
+    "name": "based16z",
+    "platform": "x",
+    "profile_url": "https://x.com/based16z",
+    "tracked": true,
+    "source_count": 8,
+    "first_seen": "2026-06-29T03:30:08.000Z",
+    "last_seen": "2026-07-02T06:46:22.000Z",
+    "shows": [
+      "tweets"
+    ]
+  },
+  {
+    "handle": "ThinkingUSD",
+    "name": "Flood",
+    "platform": "x",
+    "profile_url": "https://x.com/ThinkingUSD",
+    "tracked": true,
+    "source_count": 7,
+    "first_seen": "2026-06-26T20:36:11.000Z",
+    "last_seen": "2026-07-02T18:36:24.000Z",
+    "shows": [
+      "tweets"
+    ]
+  },
+  {
+    "handle": "matthewherper",
+    "name": "Matthew Herper",
+    "platform": "x",
+    "profile_url": "https://x.com/matthewherper",
+    "tracked": true,
+    "source_count": 6,
+    "first_seen": "2026-06-28T12:03:23.000Z",
+    "last_seen": "2026-07-02T20:41:53.000Z",
+    "shows": [
+      "tweets"
+    ]
+  },
+  {
+    "handle": "TheLongInvest",
+    "name": "The Long Investor",
+    "platform": "x",
+    "profile_url": "https://x.com/TheLongInvest",
+    "tracked": true,
+    "source_count": 5,
+    "first_seen": "2026-06-30T18:13:53.000Z",
+    "last_seen": "2026-06-30T18:34:33.000Z",
+    "shows": [
+      "tweets"
+    ]
+  },
+  {
+    "handle": "wallstengine",
+    "name": "Wall St Engine",
+    "platform": "x",
+    "profile_url": "https://x.com/wallstengine",
+    "tracked": true,
+    "source_count": 5,
+    "first_seen": "2026-06-17T21:10:26.000Z",
+    "last_seen": "2026-06-21T17:49:52.000Z",
+    "shows": [
+      "tweets"
+    ]
+  },
+  {
+    "handle": "dylan522p",
+    "name": "Dylan Patel",
+    "platform": "x",
+    "profile_url": "https://x.com/dylan522p",
+    "tracked": true,
+    "source_count": 3,
+    "first_seen": "2026-06-25T20:10:44.000Z",
+    "last_seen": "2026-07-01T19:03:36.000Z",
+    "shows": [
+      "tweets"
+    ]
+  },
+  {
+    "handle": "RHouseResearch",
+    "name": "Rittenhouse Research",
+    "platform": "x",
+    "profile_url": "https://x.com/RHouseResearch",
+    "tracked": true,
+    "source_count": 3,
+    "first_seen": "2026-07-01T13:24:35.000Z",
+    "last_seen": "2026-07-03T23:48:49.000Z",
+    "shows": [
+      "tweets"
+    ]
+  },
+  {
+    "handle": "DrJStrategy",
+    "name": "James E. Thorne",
+    "platform": "x",
+    "profile_url": "https://x.com/DrJStrategy",
+    "tracked": true,
+    "source_count": 2,
+    "first_seen": "2026-06-17T20:47:28.000Z",
+    "last_seen": "2026-07-02T10:53:44.000Z",
+    "shows": [
+      "tweets"
+    ]
+  },
+  {
+    "handle": "FirstSquawk",
+    "name": "FirstSquawk",
+    "platform": "x",
+    "profile_url": "https://x.com/FirstSquawk",
+    "tracked": true,
+    "source_count": 2,
+    "first_seen": "2026-06-18T00:24:56.000Z",
+    "last_seen": "2026-07-02T03:43:34.000Z",
+    "shows": [
+      "tweets"
+    ]
+  },
+  {
+    "handle": "jwt0625",
+    "name": "outside five sigma",
+    "platform": "x",
+    "profile_url": "https://x.com/jwt0625",
+    "tracked": true,
+    "source_count": 2,
+    "first_seen": "2026-06-19T01:50:05.000Z",
+    "last_seen": "2026-06-21T16:14:08.000Z",
+    "shows": [
+      "tweets"
+    ]
+  },
+  {
+    "handle": "LynAldenContact",
+    "name": "Lyn Alden",
+    "platform": "x",
+    "profile_url": "https://x.com/LynAldenContact",
+    "tracked": true,
+    "source_count": 2,
+    "first_seen": "2026-07-01T10:54:51.000Z",
+    "last_seen": "2026-07-01T12:53:28.000Z",
+    "shows": [
+      "tweets"
+    ]
+  },
+  {
+    "handle": "ShanuMathew93",
+    "name": "Shanu Mathew",
+    "platform": "x",
+    "profile_url": "https://x.com/ShanuMathew93",
+    "tracked": true,
+    "source_count": 2,
+    "first_seen": "2026-06-18T20:47:16.000Z",
+    "last_seen": "2026-07-02T16:15:14.000Z",
+    "shows": [
+      "tweets"
+    ]
+  },
+  {
+    "handle": "SoskaKyle",
+    "name": "Kyle Soska",
+    "platform": "x",
+    "profile_url": "https://x.com/SoskaKyle",
+    "tracked": true,
+    "source_count": 2,
+    "first_seen": "2026-06-18T19:22:15.000Z",
+    "last_seen": "2026-06-25T00:31:15.000Z",
+    "shows": [
+      "tweets"
+    ]
+  },
+  {
+    "handle": "5_utr",
+    "name": "NonsparseOncologist",
+    "platform": "x",
+    "profile_url": "https://x.com/5_utr",
+    "tracked": true,
+    "source_count": 1,
+    "first_seen": "2026-06-20T18:54:13.000Z",
+    "last_seen": "2026-06-20T18:54:13.000Z",
+    "shows": [
+      "tweets"
+    ]
+  },
+  {
+    "handle": "akshaybd",
+    "name": "Akshay BD",
+    "platform": "x",
+    "profile_url": "https://x.com/akshaybd",
+    "tracked": true,
+    "source_count": 1,
+    "first_seen": "2026-02-22T05:26:28.000Z",
+    "last_seen": "2026-02-22T05:26:28.000Z",
+    "shows": [
+      "tweets"
+    ]
+  },
+  {
+    "handle": "amitisinvesting",
+    "name": "AmitIsInvesting",
+    "platform": "x",
+    "profile_url": "https://x.com/amitisinvesting",
+    "tracked": true,
+    "source_count": 1,
+    "first_seen": "2026-07-01T13:15:17.000Z",
+    "last_seen": "2026-07-01T13:15:17.000Z",
+    "shows": [
+      "tweets"
+    ]
+  },
+  {
+    "handle": "bayeslord",
+    "name": "bayes",
+    "platform": "x",
+    "profile_url": "https://x.com/bayeslord",
+    "tracked": true,
+    "source_count": 1,
+    "first_seen": "2026-06-30T20:37:30.000Z",
+    "last_seen": "2026-06-30T20:37:30.000Z",
+    "shows": [
+      "tweets"
+    ]
+  },
+  {
+    "handle": "blknoiz06",
+    "name": "Ansem",
+    "platform": "x",
+    "profile_url": "https://x.com/blknoiz06",
+    "tracked": true,
+    "source_count": 1,
+    "first_seen": "2026-06-25T13:54:53.000Z",
+    "last_seen": "2026-06-25T13:54:53.000Z",
+    "shows": [
+      "tweets"
+    ]
+  },
+  {
+    "handle": "bowenkang",
+    "name": null,
+    "platform": "x",
+    "profile_url": "https://x.com/bowenkang",
+    "tracked": true,
+    "source_count": 1,
+    "first_seen": "2026-06-20T05:24:13.000Z",
+    "last_seen": "2026-06-20T05:24:13.000Z",
+    "shows": [
+      "tweets"
+    ]
+  },
+  {
+    "handle": "bwenews",
+    "name": "方程式新闻 BWEnews 🏎️",
+    "platform": "x",
+    "profile_url": "https://x.com/bwenews",
+    "tracked": true,
+    "source_count": 1,
+    "first_seen": "2026-06-30T13:00:02.000Z",
+    "last_seen": "2026-06-30T13:00:02.000Z",
+    "shows": [
+      "tweets"
+    ]
+  },
+  {
+    "handle": "ChipsandWafers",
+    "name": "Chips & Wafers",
+    "platform": "x",
+    "profile_url": "https://x.com/ChipsandWafers",
+    "tracked": true,
+    "source_count": 1,
+    "first_seen": "2026-06-21T10:40:56.000Z",
+    "last_seen": "2026-06-21T10:40:56.000Z",
+    "shows": [
+      "tweets"
+    ]
+  },
+  {
+    "handle": "DeItaone",
+    "name": "Walter Bloomberg",
+    "platform": "x",
+    "profile_url": "https://x.com/DeItaone",
+    "tracked": true,
+    "source_count": 1,
+    "first_seen": "2026-06-25T12:31:09.000Z",
+    "last_seen": "2026-06-25T12:31:09.000Z",
+    "shows": [
+      "tweets"
+    ]
+  },
+  {
+    "handle": "downingARK",
+    "name": "Frank Downing",
+    "platform": "x",
+    "profile_url": "https://x.com/downingARK",
+    "tracked": true,
+    "source_count": 1,
+    "first_seen": "2026-05-29T21:58:14.000Z",
+    "last_seen": "2026-05-29T21:58:14.000Z",
+    "shows": [
+      "tweets"
+    ]
+  },
+  {
+    "handle": "Evan_ss6",
+    "name": "Evanss6",
+    "platform": "x",
+    "profile_url": "https://x.com/Evan_ss6",
+    "tracked": true,
+    "source_count": 1,
+    "first_seen": "2026-06-20T17:33:07.000Z",
+    "last_seen": "2026-06-20T17:33:07.000Z",
+    "shows": [
+      "tweets"
+    ]
+  },
+  {
+    "handle": "financialjuice",
+    "name": "FinancialJuice",
+    "platform": "x",
+    "profile_url": "https://x.com/financialjuice",
+    "tracked": true,
+    "source_count": 1,
+    "first_seen": "2026-06-17T21:01:17.000Z",
+    "last_seen": "2026-06-17T21:01:17.000Z",
+    "shows": [
+      "tweets"
+    ]
+  },
+  {
+    "handle": "fuckpoasting",
+    "name": "fudge",
+    "platform": "x",
+    "profile_url": "https://x.com/fuckpoasting",
+    "tracked": true,
+    "source_count": 1,
+    "first_seen": "2026-06-19T16:55:20.000Z",
+    "last_seen": "2026-06-19T16:55:20.000Z",
+    "shows": [
+      "tweets"
+    ]
+  },
+  {
+    "handle": "ID_AA_Carmack",
+    "name": null,
+    "platform": "x",
+    "profile_url": "https://x.com/ID_AA_Carmack",
+    "tracked": true,
+    "source_count": 1,
+    "first_seen": "2026-07-03T12:46:46.000Z",
+    "last_seen": "2026-07-03T12:46:46.000Z",
+    "shows": [
+      "tweets"
+    ]
+  },
+  {
+    "handle": "kevg1412",
+    "name": "Kevin Gee",
+    "platform": "x",
+    "profile_url": "https://x.com/kevg1412",
+    "tracked": true,
+    "source_count": 1,
+    "first_seen": "2026-06-18T16:23:13.000Z",
+    "last_seen": "2026-06-18T16:23:13.000Z",
+    "shows": [
+      "tweets"
+    ]
+  },
+  {
+    "handle": "levie",
+    "name": "Aaron Levie",
+    "platform": "x",
+    "profile_url": "https://x.com/levie",
+    "tracked": true,
+    "source_count": 1,
+    "first_seen": "2026-06-18T03:53:58.000Z",
+    "last_seen": "2026-06-18T03:53:58.000Z",
+    "shows": [
+      "tweets"
+    ]
+  },
+  {
+    "handle": "MarceloLima",
+    "name": "Marcelo P. Lima",
+    "platform": "x",
+    "profile_url": "https://x.com/MarceloLima",
+    "tracked": true,
+    "source_count": 1,
+    "first_seen": "2026-06-20T12:58:47.000Z",
+    "last_seen": "2026-06-20T12:58:47.000Z",
+    "shows": [
+      "tweets"
+    ]
+  },
+  {
+    "handle": "MTSlive",
+    "name": "MTS",
+    "platform": "x",
+    "profile_url": "https://x.com/MTSlive",
+    "tracked": true,
+    "source_count": 1,
+    "first_seen": "2026-06-19T02:03:19.000Z",
+    "last_seen": "2026-06-19T02:03:19.000Z",
+    "shows": [
+      "tweets"
+    ]
+  },
+  {
+    "handle": "OInvests",
+    "name": "Oli",
+    "platform": "x",
+    "profile_url": "https://x.com/OInvests",
+    "tracked": true,
+    "source_count": 1,
+    "first_seen": "2026-06-27T08:28:44.000Z",
+    "last_seen": "2026-06-27T08:28:44.000Z",
+    "shows": [
+      "tweets"
+    ]
+  },
+  {
+    "handle": "pcbanalysis",
+    "name": null,
+    "platform": "x",
+    "profile_url": "https://x.com/pcbanalysis",
+    "tracked": true,
+    "source_count": 1,
+    "first_seen": "2026-06-19T11:55:46.000Z",
+    "last_seen": "2026-06-19T11:55:46.000Z",
+    "shows": [
+      "tweets"
+    ]
+  },
+  {
+    "handle": "PeterBerezinBCA",
+    "name": "Peter Berezin",
+    "platform": "x",
+    "profile_url": "https://x.com/PeterBerezinBCA",
+    "tracked": true,
+    "source_count": 1,
+    "first_seen": "2026-06-19T13:47:05.000Z",
+    "last_seen": "2026-06-19T13:47:05.000Z",
+    "shows": [
+      "tweets"
+    ]
+  },
+  {
+    "handle": "PeterSchiff",
+    "name": "Peter Schiff",
+    "platform": "x",
+    "profile_url": "https://x.com/PeterSchiff",
+    "tracked": true,
+    "source_count": 1,
+    "first_seen": "2026-06-26T11:02:48.000Z",
+    "last_seen": "2026-06-26T11:02:48.000Z",
+    "shows": [
+      "tweets"
+    ]
+  },
+  {
+    "handle": "pgsa_iran",
+    "name": "PGSA | نهاد مدیریت آبراه خلیج فارس",
+    "platform": "x",
+    "profile_url": "https://x.com/pgsa_iran",
+    "tracked": true,
+    "source_count": 1,
+    "first_seen": "2026-06-19T11:18:57.000Z",
+    "last_seen": "2026-06-19T11:18:57.000Z",
+    "shows": [
+      "tweets"
+    ]
+  },
+  {
+    "handle": "podcastalpha",
+    "name": null,
+    "platform": "x",
+    "profile_url": "https://x.com/podcastalpha",
+    "tracked": true,
+    "source_count": 1,
+    "first_seen": "2026-06-18T18:10:21.000Z",
+    "last_seen": "2026-06-18T18:10:21.000Z",
+    "shows": [
+      "tweets"
+    ]
+  },
+  {
+    "handle": "R_and_Invest",
+    "name": "Research & Invest",
+    "platform": "x",
+    "profile_url": "https://x.com/R_and_Invest",
+    "tracked": true,
+    "source_count": 1,
+    "first_seen": "2026-06-29T17:26:30.000Z",
+    "last_seen": "2026-06-29T17:26:30.000Z",
+    "shows": [
+      "tweets"
+    ]
+  },
+  {
+    "handle": "rasmr_eth",
+    "name": "rasmr",
+    "platform": "x",
+    "profile_url": "https://x.com/rasmr_eth",
+    "tracked": true,
+    "source_count": 1,
+    "first_seen": "2026-06-26T16:40:45.000Z",
+    "last_seen": "2026-06-26T16:40:45.000Z",
+    "shows": [
+      "rasmr"
+    ]
+  },
+  {
+    "handle": "RealJimChanos",
+    "name": "James Chanos",
+    "platform": "x",
+    "profile_url": "https://x.com/RealJimChanos",
+    "tracked": true,
+    "source_count": 1,
+    "first_seen": "2026-07-01T12:58:23.000Z",
+    "last_seen": "2026-07-01T12:58:23.000Z",
+    "shows": [
+      "tweets"
+    ]
+  },
+  {
+    "handle": "Saldivva",
+    "name": null,
+    "platform": "x",
+    "profile_url": "https://x.com/Saldivva",
+    "tracked": true,
+    "source_count": 1,
+    "first_seen": "2026-06-20T22:43:41.000Z",
+    "last_seen": "2026-06-20T22:43:41.000Z",
+    "shows": [
+      "tweets"
+    ]
+  },
+  {
+    "handle": "Shaughnessy119",
+    "name": "Tommy",
+    "platform": "x",
+    "profile_url": "https://x.com/Shaughnessy119",
+    "tracked": true,
+    "source_count": 1,
+    "first_seen": "2026-06-22T03:29:32.000Z",
+    "last_seen": "2026-06-22T03:29:32.000Z",
+    "shows": [
+      "tweets"
+    ]
+  },
+  {
+    "handle": "teortaxesTex",
+    "name": null,
+    "platform": "x",
+    "profile_url": "https://x.com/teortaxesTex",
+    "tracked": true,
+    "source_count": 1,
+    "first_seen": "2026-06-21T10:25:33.000Z",
+    "last_seen": "2026-06-21T10:25:33.000Z",
+    "shows": [
+      "tweets"
+    ]
+  },
+  {
+    "handle": "TheStalwart",
+    "name": "Joe Weisenthal",
+    "platform": "x",
+    "profile_url": "https://x.com/TheStalwart",
+    "tracked": true,
+    "source_count": 1,
+    "first_seen": "2026-06-26T13:03:30.000Z",
+    "last_seen": "2026-06-26T13:03:30.000Z",
+    "shows": [
+      "tweets"
+    ]
+  },
+  {
+    "handle": "Tyler_Neville_",
+    "name": "Tyler Neville",
+    "platform": "x",
+    "profile_url": "https://x.com/Tyler_Neville_",
+    "tracked": true,
+    "source_count": 1,
+    "first_seen": "2026-06-17T19:48:02.000Z",
+    "last_seen": "2026-06-17T19:48:02.000Z",
+    "shows": [
+      "tweets"
+    ]
+  },
+  {
+    "handle": "willoptions",
+    "name": "will.js",
+    "platform": "x",
+    "profile_url": "https://x.com/willoptions",
+    "tracked": true,
+    "source_count": 1,
+    "first_seen": "2026-06-29T23:59:36.000Z",
+    "last_seen": "2026-06-29T23:59:36.000Z",
+    "shows": [
+      "tweets"
+    ]
+  }
+]
