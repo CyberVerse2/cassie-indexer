@@ -24,6 +24,7 @@ interface PerpUniverseEntry {
 }
 
 let universeCache: { at: number; entries: Map<string, { dex: string; meta: PerpUniverseEntry }> } | null = null;
+const midsCache = new Map<string, { at: number; mids: Record<string, string> }>();
 
 /** Perp universe across the default dex + builder dexes (where HL's synthetic
  * stock perps live), cached for the run. */
@@ -79,7 +80,15 @@ export async function searchPerp(
 }
 
 export async function livePrice(coin: string, dex = ""): Promise<number | null> {
-  const mids = await info<Record<string, string>>({ type: "allMids", ...(dex ? { dex } : {}) });
+  const cacheKey = dex || "default";
+  const cached = midsCache.get(cacheKey);
+  const mids =
+    cached && Date.now() - cached.at < 2_000
+      ? cached.mids
+      : await info<Record<string, string>>({ type: "allMids", ...(dex ? { dex } : {}) });
+  if (!cached || Date.now() - cached.at >= 2_000) {
+    midsCache.set(cacheKey, { at: Date.now(), mids });
+  }
   const mid = mids[coin];
   return mid ? Number(mid) : null;
 }

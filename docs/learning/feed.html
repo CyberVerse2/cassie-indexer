@@ -35,7 +35,7 @@
 </table>
 
 <h2>The card contract</h2>
-<p>One feed card (<code>toFeedCard</code> in <code>serialize.ts</code>) joins four tables — <code>trade_ideas ⟕ routes ⟕ route_pricing ⟕ raw_posts</code> — then fetches the selected route's current price live before rendering:</p>
+<p>One feed card (<code>toFeedCard</code> in <code>serialize.ts</code>) joins four tables — <code>trade_ideas ⟕ routes ⟕ route_pricing ⟕ raw_posts</code> — then fetches the selected route's current price live before rendering. Live price calls are bounded per card; if a venue is slow or rate-limited, the card carries <code>currentPriceError</code> instead of blocking the feed or reading a stale DB current price.</p>
 <pre>{ venueLabel:"HYPERLIQUID", direction:"long", ticker:"SOL-USD",
   sincePostedPct:-0.16, currentPrice:77.27, entryPrice:77.40,
   logoUrl:"…elbstream…/crypto/SOL",

@@ -41,6 +41,7 @@ function category(route: RouteRow): string {
 
 type PmMeta = { question?: string; slug?: string; eventSlug?: string; icon?: string };
 type HlMeta = { dex?: string };
+const LIVE_PRICE_TIMEOUT_MS = 3_000;
 
 function displayTicker(route: RouteRow): string {
   // Polymarket: the market question is the title, never the condition_id.
@@ -101,6 +102,20 @@ async function liveCurrentPrice(route: RouteRow): Promise<number> {
   }
 }
 
+async function withTimeout<T>(promise: Promise<T>, message: string): Promise<T> {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        timeout = setTimeout(() => reject(new Error(message)), LIVE_PRICE_TIMEOUT_MS);
+      }),
+    ]);
+  } finally {
+    if (timeout) clearTimeout(timeout);
+  }
+}
+
 /** Compact feed card — everything the mockup renders, nothing more. */
 export async function toFeedCard(row: FeedRow) {
   const { idea, route, pricing, post, source } = row;
@@ -108,7 +123,10 @@ export async function toFeedCard(row: FeedRow) {
   let currentPrice: number | null = null;
   let currentPriceError: string | null = null;
   try {
-    currentPrice = await liveCurrentPrice(route);
+    currentPrice = await withTimeout(
+      liveCurrentPrice(route),
+      `live price timed out after ${LIVE_PRICE_TIMEOUT_MS}ms for ${route.ticker ?? "unknown"}`,
+    );
   } catch (err) {
     currentPriceError = err instanceof Error ? err.message : String(err);
   }
