@@ -1,0 +1,31 @@
+{
+  "name": "cassie-indexer",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:push": "drizzle-kit push",
+    "seed": "bun run scripts/seed-sources.ts",
+    "collect": "bun run src/cli.ts collect",
+    "process": "bun run src/cli.ts process",
+    "run-once": "bun run src/cli.ts run",
+    "daemon": "bun run src/cli.ts daemon",
+    "api": "bun run src/api/server.ts",
+    "demo": "bun run scripts/seed-demo.ts"
+  },
+  "dependencies": {
+    "@ai-sdk/openai": "^2.0.0",
+    "ai": "^5.0.0",
+    "drizzle-orm": "^0.44.0",
+    "hono": "^4.12.28",
+    "postgres": "^3.4.5",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "drizzle-kit": "^0.31.0",
+    "typescript": "^5.6.0"
+  }
+}

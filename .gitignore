@@ -1,0 +1,14 @@
+node_modules/
+web/node_modules/
+.env
+.env.*
+!.env.example
+*.log
+dist/
+web/dist/
+.DS_Store
+coverage/
+.nyc_output/
+.turbo/
+.vite/
+*.tsbuildinfo
