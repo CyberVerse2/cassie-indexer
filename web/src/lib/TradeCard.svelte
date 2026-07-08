@@ -47,6 +47,9 @@
     </div>
     <div class="price">
       <span class="now">{fmtPrice(card.currentPrice)}</span>
+      {#if card.currentPriceError}
+        <span class="price-error" title={card.currentPriceError}>price unavailable</span>
+      {/if}
       {#if card.entryPrice !== null}
         <span class="entry">entry {fmtPrice(card.entryPrice)}</span>
       {/if}
@@ -198,6 +201,7 @@
   }
   .now { font-size: 16px; color: var(--ink); }
   .entry { font-size: 13px; color: var(--faint); }
+  .price-error { font-size: 12px; color: var(--red); }
   .tradetype {
     font-size: 11px;
     color: var(--muted);

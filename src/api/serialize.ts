@@ -1,4 +1,8 @@
 import type { schema } from "../db/client";
+import * as hl from "../venues/hyperliquid";
+import * as pm from "../venues/polymarket";
+import * as polygon from "../venues/polygon";
+import * as coingecko from "../venues/coingecko";
 
 type IdeaRow = typeof schema.tradeIdeas.$inferSelect;
 type RouteRow = typeof schema.routes.$inferSelect;
@@ -36,6 +40,7 @@ function bareTicker(ticker: string | null): string {
 }
 
 type PmMeta = { question?: string; slug?: string; eventSlug?: string; icon?: string };
+type HlMeta = { dex?: string };
 
 function displayTicker(route: RouteRow): string {
   // Polymarket: the market question is the title, never the condition_id.
@@ -62,9 +67,52 @@ function num(v: string | null): number | null {
   return v === null ? null : Number(v);
 }
 
+function sincePostedPct(entryPrice: number | null, currentPrice: number | null): number | null {
+  if (entryPrice === null || currentPrice === null || entryPrice === 0) return null;
+  return Number((((currentPrice - entryPrice) / entryPrice) * 100).toFixed(4));
+}
+
+async function liveCurrentPrice(route: RouteRow): Promise<number> {
+  if (!route.venue || !route.ticker || !route.direction) {
+    throw new Error("routed idea is missing venue, ticker, or direction");
+  }
+
+  switch (route.venue) {
+    case "hyperliquid": {
+      const price = await hl.livePrice(route.ticker, (route.marketMeta as HlMeta | null)?.dex ?? "");
+      if (price === null) throw new Error(`Hyperliquid returned no live price for ${route.ticker}`);
+      return price;
+    }
+    case "equity": {
+      const price = await polygon.currentPrice(route.ticker);
+      if (price === null) throw new Error(`Polygon returned no live price for ${route.ticker}`);
+      return price;
+    }
+    case "coingecko": {
+      const price = await coingecko.currentPrice(route.ticker);
+      if (price === null) throw new Error(`CoinGecko returned no live price for ${route.ticker}`);
+      return price;
+    }
+    case "polymarket": {
+      const price = await pm.currentPrice(route.ticker, route.direction === "no" ? "no" : "yes");
+      if (price === null) throw new Error(`Polymarket returned no live price for ${route.ticker}`);
+      return price;
+    }
+  }
+}
+
 /** Compact feed card — everything the mockup renders, nothing more. */
-export function toFeedCard(row: FeedRow) {
+export async function toFeedCard(row: FeedRow) {
   const { idea, route, pricing, post, source } = row;
+  const entryPrice = num(pricing?.entryPrice ?? null);
+  let currentPrice: number | null = null;
+  let currentPriceError: string | null = null;
+  try {
+    currentPrice = await liveCurrentPrice(route);
+  } catch (err) {
+    currentPriceError = err instanceof Error ? err.message : String(err);
+  }
+
   return {
     id: idea.id,
     venue: route.venue,
@@ -74,9 +122,10 @@ export function toFeedCard(row: FeedRow) {
     ticker: displayTicker(route),
     direction: route.direction,
     tradeType: route.tradeType,
-    sincePostedPct: num(pricing?.sincePostedPct ?? null),
-    currentPrice: num(pricing?.currentPrice ?? null),
-    entryPrice: num(pricing?.entryPrice ?? null),
+    sincePostedPct: sincePostedPct(entryPrice, currentPrice),
+    currentPrice,
+    currentPriceError,
+    entryPrice,
     logoUrl: logoUrl(idea, route),
     postedAt: idea.postedAt,
     author: {
@@ -95,10 +144,10 @@ export function toFeedCard(row: FeedRow) {
 }
 
 /** Full detail — adds the reasoning the card hides. */
-export function toDetail(row: FeedRow) {
+export async function toDetail(row: FeedRow) {
   const { idea, route } = row;
   return {
-    ...toFeedCard(row),
+    ...(await toFeedCard(row)),
     thesis: idea.thesis,
     context: idea.context,
     subjects: idea.subjects,

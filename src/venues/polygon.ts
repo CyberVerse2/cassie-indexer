@@ -47,7 +47,7 @@ export async function validateTicker(
   };
 }
 
-/** Last minute-bar close within the past few days — works off-hours too. */
+/** Latest available minute-bar close. Plan recency may be delayed by Polygon tier. */
 export async function currentPrice(ticker: string): Promise<number | null> {
   const now = Date.now();
   const from = now - 5 * 86_400_000;

@@ -23,7 +23,7 @@
 <h1>Read API &amp; "The Desk" feed</h1>
 
 <h2>System map</h2>
-<p>The indexer <em>stored</em> ideas; this layer <em>serves</em> them. A read-only Hono API (<code>src/api/</code>) over the same Postgres, and a Svelte 5 SPA (<code>web/</code>) that renders the feed. The API does no market calls in the request path — it reads the already-priced rows the processor wrote, so responses are fast and the feed reflects the last sweep.</p>
+<p>The indexer <em>stored</em> ideas; this layer <em>serves</em> them. A read-only Hono API (<code>src/api/</code>) over the same Postgres, and a Svelte 5 SPA (<code>web/</code>) that renders the feed. Entry price is read from the stored baseline in <code>route_pricing</code>; current price is fetched live from the selected venue on each API read.</p>
 
 <h2>Endpoints</h2>
 <table>
@@ -35,7 +35,7 @@
 </table>
 
 <h2>The card contract</h2>
-<p>One feed card (<code>toFeedCard</code> in <code>serialize.ts</code>) joins four tables — <code>trade_ideas ⟕ routes ⟕ route_pricing ⟕ raw_posts</code> — into exactly what the mockup renders:</p>
+<p>One feed card (<code>toFeedCard</code> in <code>serialize.ts</code>) joins four tables — <code>trade_ideas ⟕ routes ⟕ route_pricing ⟕ raw_posts</code> — then fetches the selected route's current price live before rendering:</p>
 <pre>{ venueLabel:"HYPERLIQUID", direction:"long", ticker:"SOL-USD",
   sincePostedPct:-0.16, currentPrice:77.27, entryPrice:77.40,
   logoUrl:"…elbstream…/crypto/SOL",
@@ -47,7 +47,7 @@
 <p>Clicking a card opens <code>#/i/&lt;id&gt;</code> (a minimal hash router in <code>App.svelte</code> — shareable, back-button works, no router dependency). <code>IdeaDetail.svelte</code> fetches <code>/api/ideas/:id</code> and renders what the compact card hides: the full <b>thesis</b>, the <b>context</b> explainer, the <b>pipeline</b> reasoning chain (each step tagged by basis — <span style="color:#0b6e4f">from the author</span> / <span style="color:#2563eb">market fact</span> / our inference), <b>alternatives considered</b> (the roads not taken), the verbatim <b>evidence</b> quotes, the source tweet, and provenance chips (subjects, conviction, asset class, model). Unrouted ideas show their reason instead of a venue.</p>
 
 <h2>Two honest substitutions</h2>
-<div class="note">The mockup shows <b>"+3.1% today"</b> and <b>"4 you follow traded this"</b>. We have data for neither, so rather than fabricate: the 24h "today" number is replaced by an <b>entry-price reference</b> (we store entry + current + since-posted, not a rolling 24h change), and the social "you follow" footer is replaced by <b>real conviction + horizon chips</b> (we have no follow graph and one author per idea). Both are honestly-sourced fields, not invented numbers.</div>
+<div class="note">The mockup shows <b>"+3.1% today"</b> and <b>"4 you follow traded this"</b>. We have data for neither, so rather than fabricate: the 24h "today" number is replaced by an <b>entry-price reference</b> (stored entry baseline + live current price = since-posted move), and the social "you follow" footer is replaced by <b>real conviction + horizon chips</b> (we have no follow graph and one author per idea). Both are honestly-sourced fields, not invented numbers.</div>
 
 <h2>Verified run (2026-07-08)</h2>
 <p>Five demo tweets for real tracked handles were seeded and run through the actual processor (live LLM + venues + Polygon), producing five genuine cards:</p>
@@ -74,14 +74,14 @@ bun run demo &amp;&amp; bun run process   # (re)populate demo cards</pre>
 <script>
 const QUESTIONS = [
   {
-    q: "Why does /api/ideas make no market calls while handling a request?",
+    q: "Where does /api/ideas get the current price?",
     options: [
       "Market APIs don't allow server-to-server calls",
-      "The processor already wrote entry/current prices to route_pricing; the API just reads them, keeping responses fast and consistent with the last sweep",
+      "The API reads the stored entry baseline, fetches current price live from the selected venue, and computes since-posted at request time",
       "Prices are computed in the browser"
     ],
     answer: 1,
-    why: "Pricing happens in the hourly processor, not the read path. The API serves stored rows, so a feed request is a single indexed DB query."
+    why: "Current price is never read from route_pricing. The read path uses the selected route to ask the venue adapter for a live price, then computes since-posted against the stored entry baseline."
   },
   {
     q: "The mockup shows '4 you follow traded this'. Why doesn't the feed render that?",

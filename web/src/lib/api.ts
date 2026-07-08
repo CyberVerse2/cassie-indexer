@@ -9,6 +9,7 @@ export interface FeedCard {
   tradeType: "direct" | "derived" | null;
   sincePostedPct: number | null;
   currentPrice: number | null;
+  currentPriceError: string | null;
   entryPrice: number | null;
   logoUrl: string;
   postedAt: string;

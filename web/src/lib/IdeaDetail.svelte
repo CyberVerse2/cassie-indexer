@@ -60,6 +60,9 @@
       <div class="metrics">
         <div class="metric">
           <div class="m-val">{fmtPrice(idea.currentPrice)}</div>
+          {#if idea.currentPriceError}
+            <div class="m-err" title={idea.currentPriceError}>price unavailable</div>
+          {/if}
           <div class="m-lab">CURRENT</div>
         </div>
         <div class="metric">
@@ -210,6 +213,7 @@
   .m-val.muted { color: var(--faint); }
   .m-val.up { color: var(--green); }
   .m-val.down { color: var(--red); }
+  .m-err { font-size: 11px; color: var(--red); margin-top: 4px; }
   .m-lab { font-size: 10px; letter-spacing: 0.08em; color: var(--faint); margin-top: 5px; }
 
   .block { padding: 20px 0; border-bottom: 1px solid var(--line); }

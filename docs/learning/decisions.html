@@ -80,7 +80,7 @@
 <div class="d">
   <p class="label">Output</p>
   <h2>Serve first (read API), render second (Svelte feed)</h2>
-  <p><b>Chosen:</b> a read-only Hono API over the existing tables, then a Svelte 5 SPA on top. <b>Rejected:</b> paste.trade's push + live-stream model (per-source pages updated in real time as an agent works). That model exists because a human triggers each ingest and watches; our indexer is autonomous and unattended, so there's nothing to watch live — a pull API over batch-written rows fits. The API makes no market calls in the request path; it serves the prices the processor already wrote. Two mockup fields we lack data for (<code>+% today</code>, "you follow traded this") are replaced with real fields (entry reference; conviction/horizon) rather than fabricated — see <a href="feed.html">the feed page</a>.</p>
+  <p><b>Chosen:</b> a read-only Hono API over the existing tables, then a Svelte 5 SPA on top. <b>Rejected:</b> paste.trade's push + live-stream model (per-source pages updated in real time as an agent works). That model exists because a human triggers each ingest and watches; our indexer is autonomous and unattended, so there's nothing to watch live — a pull API over batch-written rows fits. The API reads stored idea, route, and entry-baseline rows, then fetches current price live from the selected venue before serializing the card. Two mockup fields we lack data for (<code>+% today</code>, "you follow traded this") are replaced with real fields (entry reference; conviction/horizon) rather than fabricated — see <a href="feed.html">the feed page</a>.</p>
 </div>
 
 <div class="d">

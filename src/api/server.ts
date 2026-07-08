@@ -48,7 +48,7 @@ app.get("/api/ideas", async (c) => {
     .orderBy(desc(tradeIdeas.postedAt))
     .limit(limit)) as FeedRow[];
 
-  const cards = rows.map(toFeedCard);
+  const cards = await Promise.all(rows.map(toFeedCard));
   const nextCursor =
     rows.length === limit ? rows[rows.length - 1].idea.postedAt.toISOString() : null;
 
@@ -68,25 +68,38 @@ app.get("/api/ideas/:id", async (c) => {
     .limit(1)) as FeedRow[];
 
   if (!row) return c.json({ error: "not found" }, 404);
-  return c.json(toDetail(row));
+  return c.json(await toDetail(row));
 });
 
 /** GET /api/authors/:handle — the track record no single tweet contains. */
 app.get("/api/authors/:handle", async (c) => {
   const handle = c.req.param("handle");
-  const [stats] = await db
-    .select({
-      ideas: sql<number>`count(*)::int`,
-      routed: sql<number>`count(*) filter (where ${routes.status} = 'routed')::int`,
-      avgSincePosted: sql<number>`round(avg(${routePricing.sincePostedPct}), 2)`,
-      winners: sql<number>`count(*) filter (where ${routePricing.sincePostedPct} > 0)::int`,
-    })
+  const rows = (await db
+    .select(baseSelect)
     .from(tradeIdeas)
-    .leftJoin(routes, eq(routes.ideaId, tradeIdeas.id))
+    .innerJoin(routes, eq(routes.ideaId, tradeIdeas.id))
     .leftJoin(routePricing, eq(routePricing.routeId, routes.id))
-    .where(eq(tradeIdeas.authorHandle, handle));
+    .leftJoin(rawPosts, eq(rawPosts.tweetId, tradeIdeas.tweetId))
+    .leftJoin(sources, eq(sources.handle, tradeIdeas.authorHandle))
+    .where(eq(tradeIdeas.authorHandle, handle))) as FeedRow[];
 
-  return c.json({ handle, ...stats });
+  const routedRows = rows.filter((row) => row.route.status === "routed");
+  const cards = await Promise.all(routedRows.map(toFeedCard));
+  const priced = cards
+    .map((card) => card.sincePostedPct)
+    .filter((pct): pct is number => pct !== null);
+  const avgSincePosted =
+    priced.length === 0
+      ? null
+      : Number((priced.reduce((sum, pct) => sum + pct, 0) / priced.length).toFixed(2));
+
+  return c.json({
+    handle,
+    ideas: rows.length,
+    routed: routedRows.length,
+    avgSincePosted,
+    winners: priced.filter((pct) => pct > 0).length,
+  });
 });
 
 /** meta for the "live · Nm ago" header */

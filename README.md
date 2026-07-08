@@ -16,7 +16,7 @@ Two stages decoupled by the DB: a collector failure never loses LLM work, a proc
 
 - **Extraction**: one structured `gpt-5.4-mini` call (Vercel AI SDK + Zod) with OpenAI web search for subject/ticker/context enrichment only; quotes are mechanically verified as substrings of the post.
 - **Routing**: deterministic venue search (Hyperliquid perps incl. builder-dex stock perps, Polymarket, Polygon equities, CoinGecko spot) → one bounded LLM ranking call over *validated* candidates only. Unroutable ideas keep a row with `unrouted_reason`.
-- **Pricing**: entry at post-time (HL candleSnapshot / Polygon minute bars / CoinGecko range) + current price.
+- **Pricing**: entry at post-time is stored as the baseline; current price is fetched live from the selected venue when the feed is read.
 
 ## Setup
 
