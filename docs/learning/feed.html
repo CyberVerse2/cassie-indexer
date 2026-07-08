@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Read API & The Desk feed — cassie-indexer</title>
+<style>
+  :root { --ink: #1a1d23; --muted: #6b7280; --accent: #0b6e4f; --card: #f6f7f9; --line: #e5e7eb; }
+  body { font-family: -apple-system, "Segoe UI", Roboto, sans-serif; color: var(--ink); max-width: 860px; margin: 2rem auto; padding: 0 1.25rem; line-height: 1.6; }
+  h1 { font-size: 1.7rem; } h2 { font-size: 1.25rem; margin-top: 2.2rem; border-bottom: 1px solid var(--line); padding-bottom: .3rem; }
+  code { font-family: ui-monospace, Menlo, monospace; font-size: .88em; background: var(--card); padding: .1em .35em; border-radius: 4px; }
+  pre { background: var(--card); padding: 1rem; border-radius: 8px; overflow-x: auto; font-size: .85rem; }
+  table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
+  th, td { border: 1px solid var(--line); padding: .5rem .7rem; text-align: left; font-size: .92rem; }
+  th { background: var(--card); }
+  .note { background: #fdf6e3; border-left: 4px solid #d4a72c; border-radius: 6px; padding: .7rem 1rem; margin: 1rem 0; }
+  a { color: var(--accent); }
+  .crumb { color: var(--muted); font-size: .9rem; }
+</style>
+</head>
+<body>
+<p class="crumb"><a href="index.html">← Learning docs</a></p>
+<h1>Read API &amp; "The Desk" feed</h1>
+
+<h2>System map</h2>
+<p>The indexer <em>stored</em> ideas; this layer <em>serves</em> them. A read-only Hono API (<code>src/api/</code>) over the same Postgres, and a Svelte 5 SPA (<code>web/</code>) that renders the feed. The API does no market calls in the request path — it reads the already-priced rows the processor wrote, so responses are fast and the feed reflects the last sweep.</p>
+
+<h2>Endpoints</h2>
+<table>
+<tr><th>Route</th><th>Returns</th></tr>
+<tr><td><code>GET /api/ideas?tab=&amp;limit=&amp;cursor=</code></td><td>Feed cards, newest first. <code>tab</code> ∈ all/perps/stocks/tokens/markets (→ <code>routes.instrument</code>). Cursor = ISO <code>postedAt</code>. Only <code>status='routed'</code>.</td></tr>
+<tr><td><code>GET /api/ideas/:id</code></td><td>Full detail: adds <code>thesis</code>, <code>context</code>, <code>pipeline</code> (steps), <code>alternatives</code>, quotes, subjects.</td></tr>
+<tr><td><code>GET /api/authors/:handle</code></td><td>Track record: idea count, routed count, winners, avg since-posted %. The first thing no single tweet can say — falls out of a <code>GROUP BY author</code>.</td></tr>
+<tr><td><code>GET /api/status</code></td><td>Last fetch time + routed-idea count, for the "live · Nm ago" header.</td></tr>
+</table>
+
+<h2>The card contract</h2>
+<p>One feed card (<code>toFeedCard</code> in <code>serialize.ts</code>) joins four tables — <code>trade_ideas ⟕ routes ⟕ route_pricing ⟕ raw_posts</code> — into exactly what the mockup renders:</p>
+<pre>{ venueLabel:"HYPERLIQUID", direction:"long", ticker:"SOL-USD",
+  sincePostedPct:-0.16, currentPrice:77.27, entryPrice:77.40,
+  logoUrl:"…elbstream…/crypto/SOL",
+  author:{ name:"Ansem", handle:"blknoiz06", avatarUrl:"…unavatar/x/blknoiz06" },
+  text:"SOL/ETH ratio just reclaimed…", conviction:"high", horizon:"for weeks" }</pre>
+<p>Field derivations worth noting: <code>ticker</code> gets a <code>-USD</code> suffix for perps and strips the builder-dex namespace (<code>xyz:INTC</code> → <code>INTC</code>); <code>logoUrl</code> is a string-built elbstream URL (<code>crypto/</code> vs <code>symbol/</code> by asset class); avatars use <code>unavatar.io/x/{handle}</code> with an initials fallback on error.</p>
+
+<h2>Card detail view</h2>
+<p>Clicking a card opens <code>#/i/&lt;id&gt;</code> (a minimal hash router in <code>App.svelte</code> — shareable, back-button works, no router dependency). <code>IdeaDetail.svelte</code> fetches <code>/api/ideas/:id</code> and renders what the compact card hides: the full <b>thesis</b>, the <b>context</b> explainer, the <b>pipeline</b> reasoning chain (each step tagged by basis — <span style="color:#0b6e4f">from the author</span> / <span style="color:#2563eb">market fact</span> / our inference), <b>alternatives considered</b> (the roads not taken), the verbatim <b>evidence</b> quotes, the source tweet, and provenance chips (subjects, conviction, asset class, model). Unrouted ideas show their reason instead of a venue.</p>
+
+<h2>Two honest substitutions</h2>
+<div class="note">The mockup shows <b>"+3.1% today"</b> and <b>"4 you follow traded this"</b>. We have data for neither, so rather than fabricate: the 24h "today" number is replaced by an <b>entry-price reference</b> (we store entry + current + since-posted, not a rolling 24h change), and the social "you follow" footer is replaced by <b>real conviction + horizon chips</b> (we have no follow graph and one author per idea). Both are honestly-sourced fields, not invented numbers.</div>
+
+<h2>Verified run (2026-07-08)</h2>
+<p>Five demo tweets for real tracked handles were seeded and run through the actual processor (live LLM + venues + Polygon), producing five genuine cards:</p>
+<table>
+<tr><th>Ticker</th><th>Dir</th><th>Venue</th><th>Since posted</th><th>Author</th><th>Tab</th></tr>
+<tr><td>SOL-USD</td><td>long</td><td>HYPERLIQUID</td><td>−0.16%</td><td>@blknoiz06</td><td>perps</td></tr>
+<tr><td>HYPE-USD</td><td>long</td><td>HYPERLIQUID</td><td>+0.14%</td><td>@zephyr_z9</td><td>perps</td></tr>
+<tr><td>ETH-USD</td><td>short</td><td>HYPERLIQUID</td><td>—</td><td>@ThinkingUSD</td><td>perps</td></tr>
+<tr><td>BTC-USD</td><td>long</td><td>HYPERLIQUID</td><td>+0.09%</td><td>@degentradingLSD</td><td>perps</td></tr>
+<tr><td>NVDA</td><td>long</td><td>STOCKS (Polygon)</td><td>0%</td><td>@HiCagr</td><td>stocks</td></tr>
+</table>
+<p>Verification performed: production build clean (113 modules); Vite dev proxy returns all 5 cards through <code>/api/ideas</code>; tab filter (<code>?tab=perps</code> → 3, <code>?tab=stocks</code> → 1); detail endpoint returns populated <code>context</code> + 4-step <code>pipeline</code>; rendered feed screenshotted via headless Chrome and refined against the mockup (cards on black with 1px dividers, only the nested quote raised; logos via elbstream + avatars via unavatar confirmed loading).</p>
+
+<h2>Robustness note</h2>
+<p>Structured LLM calls occasionally return off-schema (<code>No object generated</code>). Both the extract and route calls are now wrapped in <code>withRetry</code> (3 attempts) — the ETH-short demo failed once, then succeeded on reprocess.</p>
+
+<h2>Run it</h2>
+<pre>bun run api            # Hono API on :8787
+cd web &amp;&amp; bun run dev   # Svelte feed on :5173 (proxies /api → :8787)
+bun run demo &amp;&amp; bun run process   # (re)populate demo cards</pre>
+
+<h2>Quiz</h2>
+<div id="quiz"></div>
+<script>
+const QUESTIONS = [
+  {
+    q: "Why does /api/ideas make no market calls while handling a request?",
+    options: [
+      "Market APIs don't allow server-to-server calls",
+      "The processor already wrote entry/current prices to route_pricing; the API just reads them, keeping responses fast and consistent with the last sweep",
+      "Prices are computed in the browser"
+    ],
+    answer: 1,
+    why: "Pricing happens in the hourly processor, not the read path. The API serves stored rows, so a feed request is a single indexed DB query."
+  },
+  {
+    q: "The mockup shows '4 you follow traded this'. Why doesn't the feed render that?",
+    options: [
+      "It's rendered but hidden by CSS",
+      "We have no follow graph and only one author per idea, so it's replaced with real conviction/horizon chips rather than fabricated",
+      "The API returns it but the component drops it"
+    ],
+    answer: 1,
+    why: "Honest substitution: invent nothing. No social graph exists in the data model, so the footer shows fields we actually have."
+  },
+  {
+    q: "A card's ticker is 'INTC' but the DB route ticker is 'xyz:INTC'. Where does the clean symbol come from?",
+    options: [
+      "The LLM rewrites it",
+      "serialize.ts strips the builder-dex namespace (split on ':') and adds -USD only for perps",
+      "Polygon returns it"
+    ],
+    answer: 1,
+    why: "HL stock perps live on builder dexes namespaced as 'xyz:INTC'. The serializer bares the symbol for display and logo lookup."
+  }
+];
+const root = document.getElementById('quiz');
+QUESTIONS.forEach((item, qi) => {
+  const box = document.createElement('div');
+  box.style.cssText = 'background:#f6f7f9;border-radius:8px;padding:1rem;margin:1rem 0;';
+  box.innerHTML = '<p style="margin-top:0"><b>Q' + (qi+1) + '.</b> ' + item.q + '</p>';
+  const fb = document.createElement('p');
+  fb.style.cssText = 'margin-bottom:0;display:none;';
+  item.options.forEach((opt, oi) => {
+    const btn = document.createElement('button');
+    btn.textContent = opt;
+    btn.style.cssText = 'display:block;width:100%;text-align:left;margin:.35rem 0;padding:.5rem .75rem;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer;font:inherit;';
+    btn.onclick = () => {
+      fb.style.display = 'block';
+      const right = oi === item.answer;
+      fb.innerHTML = (right ? '✅ <b>Correct.</b> ' : '❌ <b>Not quite.</b> ') + item.why;
+      fb.style.color = right ? '#0b6e4f' : '#b3261e';
+    };
+    box.appendChild(btn);
+  });
+  box.appendChild(fb);
+  root.appendChild(box);
+});
+</script>
+</body>
+</html>

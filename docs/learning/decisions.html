@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Decision Record — cassie-indexer</title>
+<style>
+  :root { --ink: #1a1d23; --muted: #6b7280; --accent: #0b6e4f; --card: #f6f7f9; --line: #e5e7eb; }
+  body { font-family: -apple-system, "Segoe UI", Roboto, sans-serif; color: var(--ink); max-width: 860px; margin: 2rem auto; padding: 0 1.25rem; line-height: 1.6; }
+  h1 { font-size: 1.7rem; } h2 { font-size: 1.15rem; margin-top: 2rem; }
+  code { font-family: ui-monospace, Menlo, monospace; font-size: .88em; background: var(--card); padding: .1em .35em; border-radius: 4px; }
+  .d { border: 1px solid var(--line); border-radius: 8px; padding: 1rem 1.2rem; margin: 1.2rem 0; }
+  .d h2 { margin: 0 0 .5rem; }
+  .label { font-size: .78rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--accent); }
+  blockquote { border-left: 4px solid var(--accent); margin: 1rem 0; padding: .6rem 1rem; background: var(--card); border-radius: 0 8px 8px 0; }
+  a { color: var(--accent); }
+  .crumb { color: var(--muted); font-size: .9rem; }
+</style>
+</head>
+<body>
+<p class="crumb"><a href="index.html">← Learning docs</a></p>
+<h1>Decision Record</h1>
+<p>Why cassie-indexer looks the way it does. Each entry names the choice, the rejected alternative, and the reason.</p>
+
+<div class="d">
+  <p class="label">North star</p>
+  <h2>What counts as a trade idea</h2>
+  <blockquote>A trade idea is a post where the author expresses a directional view on a specific market subject, such that you could act on it.</blockquote>
+  <p>Three simultaneous bars: a nameable <b>subject</b>, an assignable <b>direction</b>, and an expressible <b>price consequence</b>. The author's verbatim words are the evidence (frozen in <code>quotes[]</code>/<code>headline_quote</code>); our interpretation lives separately in <code>thesis</code>. One belief = one idea; instruments are expressions, not extra ideas. The sharpest exclusion: <em>a view without a side, or a subject you can't name, is not a trade idea.</em> Derived from paste.trade's thesis spec (<code>SKILL.md</code> §6 + <code>sparse.md</code> classifier), rewritten and adopted as this project's extraction gate.</p>
+</div>
+
+<div class="d">
+  <p class="label">Architecture</p>
+  <h2>Two stages decoupled by the database</h2>
+  <p><b>Chosen:</b> collector (X → <code>raw_posts</code>) and processor (<code>raw_posts</code> → ideas) as separate runnable stages. <b>Rejected:</b> one monolithic hourly job that fetches and extracts inline. They run at different speeds and fail for different reasons; X quota is the scarce resource, so reprocessing must never require refetching. The DB is the queue: <code>status='pending'</code> is the work list.</p>
+</div>
+
+<div class="d">
+  <p class="label">Architecture</p>
+  <h2>Fresh reimplementation; borrow only venue search concepts</h2>
+  <p>This is a new codebase on purpose — not a fork of cassie. From cassie we mirrored the Hyperliquid <code>/info</code> request types (<code>perpDexs</code>, <code>metaAndAssetCtxs</code>, <code>allMids</code>) and the Polymarket Gamma approach, as plain-fetch adapters with no shared code. Execution stays in cassie entirely: the indexer holds <b>no private keys</b> (least privilege — it indexes, it does not trade).</p>
+</div>
+
+<div class="d">
+  <p class="label">Processor</p>
+  <h2>Bounded routing, not an agentic tool-loop</h2>
+  <p><b>Chosen:</b> deterministic venue validation first, then one LLM ranking call over the validated list. <b>Rejected:</b> cassie's open tool-loop (<code>assess_expression_fit → rank_expressions</code>). At ~80 handles/hour unattended, the loop's cost and unpredictability outweigh its flexibility — and structurally preventing instrument hallucination matters more when no human reviews each result.</p>
+</div>
+
+<div class="d">
+  <p class="label">Processor</p>
+  <h2>Gate folded into extraction; evidence enforced in code</h2>
+  <p>One structured call returns <code>is_idea:false</code> or the ideas — no separate classifier round-trip (gpt-5.4-mini is cheap; most posts are noise and exit early). The verbatim-quote rule is enforced mechanically after the call: any idea whose quotes aren't substrings of the post is dropped. Prompts drift; <code>String.includes</code> doesn't.</p>
+</div>
+
+<div class="d">
+  <p class="label">Data sources</p>
+  <h2>Polygon + CoinGecko + elbstream (paste.trade's verified stack)</h2>
+  <p>Verified from paste.trade's exported data (4,733 trades using <code>elbstream.com/logos/symbol</code>, <code>platform:"coingecko"</code> records, Polygon in <code>types.ts</code>): equities → Polygon.io (the only realistic source of minute-level history for "price at post time"); crypto spot tail → CoinGecko; perps → Hyperliquid; predictions → Polymarket; logos → ticker-keyed elbstream URLs, cosmetic and lazy.</p>
+</div>
+
+<div class="d">
+  <p class="label">Pricing</p>
+  <h2>Off-hours equity entry = last trade before the post</h2>
+  <p>A 2am-Saturday $NVDA call gets the last minute-bar close before the post (7-day lookback), not Monday's open — the baseline is <em>what the author was looking at</em>. The gap is recorded in <code>entry_note</code>. Polymarket has no historical odds API, so PM entries are the price at index time, honestly noted; hourly cadence bounds the error at ≤1h.</p>
+</div>
+
+<div class="d">
+  <p class="label">Presentation</p>
+  <h2><code>context</code> and <code>pipeline</code>: card fields at no extra cost</h2>
+  <p>To make paste.trade-grade cards, two fields ride calls the processor already makes. <b><code>context</code></b> (<code>trade_ideas</code>, from the extract call) is paste.trade's <code>ticker_context</code>: 1–3 jargon-free sentences explaining the subject, no view. The extractor has OpenAI web search available for subject resolution, fresh context, and ticker discovery, but the trade-idea decision remains post-only: direction and evidence must come from the author's words. <b><code>pipeline</code></b> (<code>routes</code>, from the router's ranking call, replacing the old single <code>rationale</code> string) is the derivation chain — ordered <code>steps[]</code> each tagged <code>basis: quote | market | inference</code>, plus a one-line <code>explanation</code>. <b>Naming caveat:</b> <code>pipeline</code> the column (per-idea reasoning) collides with "the pipeline" the system flow — same word, different scope; kept per product naming.</p>
+</div>
+
+<div class="d">
+  <p class="label">Discovered while building</p>
+  <h2>Two live-API corrections</h2>
+  <p>(1) HL stock perps are namespaced on builder dexes (<code>xyz:INTC</code>) — the universe map indexes bare symbols too, or equity tickers never match. (2) Gamma's <code>/events?search=</code> relevance is near-random (cassie compensated with an AI query planner); <code>/public-search</code> ranks well and needs no planner. Both found by hitting the real APIs during the smoke run, not by reading docs.</p>
+</div>
+
+<div class="d">
+  <p class="label">Output</p>
+  <h2>Serve first (read API), render second (Svelte feed)</h2>
+  <p><b>Chosen:</b> a read-only Hono API over the existing tables, then a Svelte 5 SPA on top. <b>Rejected:</b> paste.trade's push + live-stream model (per-source pages updated in real time as an agent works). That model exists because a human triggers each ingest and watches; our indexer is autonomous and unattended, so there's nothing to watch live — a pull API over batch-written rows fits. The API makes no market calls in the request path; it serves the prices the processor already wrote. Two mockup fields we lack data for (<code>+% today</code>, "you follow traded this") are replaced with real fields (entry reference; conviction/horizon) rather than fabricated — see <a href="feed.html">the feed page</a>.</p>
+</div>
+
+<div class="d">
+  <p class="label">Ingestion</p>
+  <h2>Thread reassembly — extract a self-thread once, not per tweet</h2>
+  <p>In a self-thread each tweet is <em>also</em> the author's own timeline post, so every tweet became its own row and got extracted independently — a single thesis produced duplicates (parent + child) and orphan fragments (a child like "API tokens" makes no sense alone). Fix: the collector stores <code>reply_to_tweet_id</code>; <code>thread.ts</code> reassembles the same-author chain (walk to root, BFS descendants); the processor extracts the assembled text <b>once</b>, anchored to the root (its <code>posted_at</code> is the entry-price baseline, its tweet is the card link). Made idempotent by deleting prior ideas for all members first, which also handles a thread growing across hourly runs. Verified on real data: a 7-tweet CapitalShipyard thread collapsed from 2 fragments to 1 idea; ~97 thread-member posts across threads up to 9 tweets reduced to one extraction each. Known edge: two very long threads (9 + tweets) consistently returned off-schema from gpt-5.4-mini and are marked <code>failed</code>.</p>
+</div>
+
+<div class="d">
+  <p class="label">Ingestion</p>
+  <h2>Process only self-threads; skip replies to other people</h2>
+  <p>Replies were ~28% of routed cards, and about half carried a genuine take — but the other half were reactive noise (a "100%" agreement → COIN short; a "don't fullport, it's a meme" <em>warning</em> → HOOD long). Decision: accept the precision-for-recall trade and <b>drop replies-to-others entirely</b>, keeping originals, quotes, and self-threads. The enabler is <b><code>is_self_reply</code></b> — set when the tweet's <code>author_id</code> matches the replied-to tweet's — which distinguishes a self-thread (author continuing their own tweet) from a conversation with someone else. The processor skips any thread whose root is a reply-to-others, with <em>no LLM call</em>. This purged 19 routed cards from the live feed (COIN/HOOD/MRAM et al), 70 → 51. Blunt alternative rejected: X's <code>exclude=replies</code> also kills self-threads; the flag is what makes the cut surgical. (Existing rows predate the flag and read <code>false</code>, so the one-time purge treated all replies as reply-to-others; new sweeps set it precisely, keeping self-threads.)</p>
+</div>
+
+<div class="d">
+  <p class="label">Deferred</p>
+  <h2>Parked, deliberately</h2>
+  <p>Position lifecycle (add/trim/close as state transitions) and a continuous P&L tracker stage — user chose to leave as-is for v1. Also open: X-tier cost sizing (credits depleted mid first-run), deleted-tweet integrity policy, eval harness for unattended extraction quality, multilingual sources, and the standalone-thesis gate to fully reject reactive one-liners.</p>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pipeline Walkthrough — cassie-indexer</title>
+<style>
+  :root { --ink: #1a1d23; --muted: #6b7280; --accent: #0b6e4f; --card: #f6f7f9; --line: #e5e7eb; }
+  body { font-family: -apple-system, "Segoe UI", Roboto, sans-serif; color: var(--ink); max-width: 860px; margin: 2rem auto; padding: 0 1.25rem; line-height: 1.6; }
+  h1 { font-size: 1.7rem; } h2 { font-size: 1.25rem; margin-top: 2.2rem; border-bottom: 1px solid var(--line); padding-bottom: .3rem; }
+  code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .88em; }
+  code { background: var(--card); padding: .1em .35em; border-radius: 4px; }
+  pre { background: var(--card); padding: 1rem; border-radius: 8px; overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
+  th, td { border: 1px solid var(--line); padding: .5rem .7rem; text-align: left; font-size: .92rem; }
+  th { background: var(--card); }
+  .flow { display: flex; flex-direction: column; gap: .4rem; margin: 1.2rem 0; }
+  .stage { background: var(--card); border-left: 4px solid var(--accent); border-radius: 6px; padding: .7rem 1rem; }
+  .stage b { color: var(--accent); }
+  .arrow { text-align: center; color: var(--muted); }
+  .note { background: #fdf6e3; border-left: 4px solid #d4a72c; border-radius: 6px; padding: .7rem 1rem; margin: 1rem 0; }
+  a { color: var(--accent); }
+  .crumb { color: var(--muted); font-size: .9rem; }
+</style>
+</head>
+<body>
+<p class="crumb"><a href="index.html">← Learning docs</a></p>
+<h1>Pipeline Walkthrough</h1>
+
+<h2>System map</h2>
+<p>cassie-indexer is a standalone service: X timelines in, structured trade ideas out, Postgres in the middle. It borrows <em>venue search</em> concepts from the <code>cassie</code> monorepo but holds no execution keys — indexing is its entire job. Sources live in <code>data/twitter_sources.json</code> (~80 tracked accounts) and are seeded into the <code>sources</code> table.</p>
+
+<h2>The two-stage shape</h2>
+<div class="flow">
+  <div class="stage"><b>Stage 1 — Collector</b> (<code>src/collector/</code>): for each tracked source, fetch tweets since the per-source cursor (<code>since_id</code>), land them in <code>raw_posts</code> keyed on <code>tweet_id</code>, advance the cursor. No LLM, no market calls.</div>
+  <div class="arrow">↓ decoupled by the database ↓</div>
+  <div class="stage"><b>Stage 2 — Processor</b> (<code>src/processor/</code>): drain <code>raw_posts</code> where <code>status='pending'</code> through gate+extract → route → price, persisting after each sub-step.</div>
+</div>
+<p>Why the split: the two stages run at different speeds and fail for different reasons. If the LLM or a market API breaks, the tweets are already durably landed; if X breaks, the backlog still drains. Reprocessing with new extraction logic reads from <code>raw_posts</code> — it never re-spends X API quota (the scarce, paid resource).</p>
+
+<h2>Processor internals</h2>
+<div class="flow">
+  <div class="stage"><b>⓪ Thread assembly + reply policy</b> (<code>thread.ts</code>) — a post is expanded into its full <em>self-author</em> reply chain (walk up <code>reply_to_tweet_id</code> to the root, BFS same-author descendants, order by time), extracted as ONE unit anchored to the root — so a thesis across tweets yields one idea, not duplicates + orphan fragments. <b>Replies to other people are skipped entirely</b> (root is a reply-to-others → no LLM call); only originals, quotes, and self-threads reach extraction. Idempotent: reprocessing (or a thread growing across hourly runs) deletes prior ideas for every member first.</div>
+  <div class="stage"><b>① Gate + extract</b> (<code>extract.ts</code>) — ONE structured <code>gpt-5.4-mini</code> call over the assembled thread returns either <code>is_idea:false</code> or 0..n ideas. The system prompt is the project's north-star definition, and it labels context by relationship (self-thread continues the author's own view; a reply-to-others only counts if the author states their own side). The same extractor call has OpenAI web search available, but only after the post clears the idea bar: search resolves ambiguous subjects, fresh context, and candidate tickers; it never supplies the author's evidence or direction. After the call, quotes are <em>mechanically</em> checked as substrings of the thread text — an idea whose evidence isn't verbatim is dropped.</div>
+  <div class="stage"><b>② Route</b> (<code>route.ts</code>) — deterministic candidate gathering (venue adapters validate real instruments) then ONE bounded LLM ranking call. The model picks among validated candidates or declares <code>unrouted</code>; it cannot invent instruments. The same call emits the <code>pipeline</code>: the derivation chain from the author's words to the chosen instrument, as ordered steps each tagged <code>basis: quote | market | inference</code>.</div>
+  <div class="stage"><b>③ Price</b> (<code>price.ts</code>) — entry price at <code>posted_at</code> + current price. A pricing failure leaves the idea <code>routed</code> (re-priceable later); it never rolls back routing.</div>
+  <div class="stage"><b>④ Finalize</b> — post marked <code>processed</code> with <code>ideas_extracted</code> count.</div>
+</div>
+
+<h2>Venue adapters</h2>
+<table>
+<tr><th>Venue</th><th>File</th><th>Search</th><th>Entry price (at post time)</th><th>Current price</th></tr>
+<tr><td>Hyperliquid</td><td><code>venues/hyperliquid.ts</code></td><td><code>perpDexs</code> + <code>metaAndAssetCtxs</code> sweep; builder-dex assets (<code>xyz:INTC</code>) indexed under bare symbol too</td><td><code>candleSnapshot</code> 1m→1h widening</td><td><code>allMids</code></td></tr>
+<tr><td>Polymarket</td><td><code>venues/polymarket.ts</code></td><td>Gamma <code>/public-search</code> (NOT <code>/events?search</code> — see decisions)</td><td>price at index time (no historical odds)</td><td>Gamma market payload</td></tr>
+<tr><td>Polygon (equities)</td><td><code>venues/polygon.ts</code></td><td><code>/v3/reference/tickers</code></td><td>last minute-bar ≤ post time, 7-day lookback (off-hours rule)</td><td>latest minute bar (5-day window)</td></tr>
+<tr><td>CoinGecko (spot tail)</td><td><code>venues/coingecko.ts</code></td><td><code>/search</code>, exact symbol, best market-cap rank</td><td><code>market_chart/range</code> nearest point</td><td><code>/simple/price</code></td></tr>
+</table>
+
+<h2>A real run (verified 2026-07-08)</h2>
+<p>Three fixture posts were processed against live APIs:</p>
+<table>
+<tr><th>Post</th><th>Gate</th><th>Route</th><th>Price</th></tr>
+<tr><td>"long ETH here, invalidation below 0.052 on the ratio"</td><td>1 idea (long, crypto)</td><td>HL ETH perp, <code>derived</code> (ratio → USD perp, <code>pipeline</code> recorded)</td><td>entry 1757.90 → current 1734.15, −1.35%</td></tr>
+<tr><td>"gm. markets are closed, go touch grass."</td><td><code>is_idea:false</code></td><td>—</td><td>—</td></tr>
+<tr><td>"Bet on the cut" (September Fed meeting)</td><td>1 idea (yes, macro)</td><td><code>unrouted</code>: candidates would distort the timing-specific thesis</td><td>—</td></tr>
+</table>
+<div class="note">The Fed case is the system working, not failing: the ranker refused to map a September-specific call onto a 2026-total-cuts market. Unroutable ideas keep their row + reason — the index stays honest.</div>
+
+<h3 style="font-size:1.05rem;margin-top:1.5rem">Presentation fields: <code>context</code> + <code>pipeline</code></h3>
+<p>Two fields shape the ETH idea into a paste.trade-style card, both produced by calls we already make:</p>
+<p><b><code>context</code></b> (from the extract call) — the jargon-free explainer:</p>
+<pre>"ETH/BTC is the price ratio between Ethereum and Bitcoin. It shows how Ethereum
+ is doing relative to Bitcoin, rather than just in absolute dollar terms.
+ Traders use it to express a bet on one crypto outperforming the other."</pre>
+<p><b><code>pipeline</code></b> (from the route call) — the provenance-tagged derivation chain:</p>
+<pre>explanation: "Author is explicitly bullish ETH/BTC and says to long ETH, which
+              maps best to a long ETH perp rather than BTC."
+steps:
+  [quote]     "ETH/BTC has based and reclaimed the range, rotation starting."
+  [quote]     "'long ETH here' and calls it 'the trade into Q3.'"
+  [market]    "Venue-validated candidates are single-asset ETH/BTC perps, not the ratio."
+  [inference] "Map the ratio-bullish view to a direct long ETH; BTC wouldn't express outperformance."</pre>
+<div class="note"><b>Naming:</b> the <code>routes.pipeline</code> column (a per-idea derivation chain) is unrelated to "the pipeline" as the collector→processor system flow. Same word, two scopes.</div>
+
+<h2>Data model (status machines)</h2>
+<pre>raw_posts.status    pending → processed | failed
+trade_ideas.status  extracted → routed → priced
+                              ↘ unrouted
+routes.status       routed | unrouted (+ unrouted_reason)</pre>
+<p>Every idea records <code>extractor_version</code> + <code>model</code>; every route records <code>router_version</code> — reprocessing is auditable.</p>
+
+<h2>Verification</h2>
+<ul>
+  <li><code>bunx tsc --noEmit</code> — clean.</li>
+  <li>Extractor web search is inside the structured extraction call via OpenAI's provider-executed <code>web_search</code> tool, with the prompt boundary that <code>is_idea</code>, <code>direction</code>, and <code>quotes</code> come only from supplied post text.</li>
+  <li>Live adapter checks: HL ETH perp + <code>candleSnapshot</code>, HL builder-dex stock perp (<code>xyz:INTC</code> @ 104.99), PM <code>/public-search</code> relevance, CoinGecko DOGE resolution.</li>
+  <li>End-to-end: 3 fixtures → 2 ideas → 1 routed+priced, 1 honest unrouted, 1 gated (table above); fixtures then deleted.</li>
+  <li><code>context</code> + <code>pipeline</code>: ETH fixture re-run confirmed both populate from the live model (outputs shown above); columns applied via direct <code>ALTER TABLE</code> (Drizzle push needs a TTY for the rename).</li>
+  <li>X API: resolved a real user id and fetched a timeline window for one handle (quota-respectful single-source test).</li>
+</ul>
+
+<h2>Quiz</h2>
+<div id="quiz"></div>
+<script>
+const QUESTIONS = [
+  {
+    q: "The OpenAI API goes down for an hour mid-sweep. What is lost?",
+    options: [
+      "The tweets from that hour — they must be refetched from X",
+      "Nothing durable: posts are already in raw_posts as 'pending' and drain on the next processor run",
+      "The ideas extracted that hour are marked failed and skipped forever"
+    ],
+    answer: 1,
+    why: "The collector lands posts before any LLM work. Failed posts get status 'failed' with the error, pending ones simply wait; nothing needs X again."
+  },
+  {
+    q: "Why does routing gather candidates deterministically BEFORE the LLM call, instead of letting the model call venue tools in a loop?",
+    options: [
+      "It's faster to write",
+      "The model can then only choose among instruments proven to exist — it cannot hallucinate a venue or ticker",
+      "Tool loops are unsupported in the AI SDK"
+    ],
+    answer: 1,
+    why: "Bounded routing: validation first, judgment second. The ranker picks an index into the validated list or declares unrouted — inventing instruments is structurally impossible."
+  },
+  {
+    q: "An author posts a $NVDA call at 2am Saturday. What entry price gets recorded?",
+    options: [
+      "Null — markets are closed",
+      "Monday's opening print",
+      "The last minute-bar close before the post (up to 7 days back), with an off-hours note"
+    ],
+    answer: 2,
+    why: "Decision: the baseline is the price the author was looking at when they posted — the last trade before, not the next open. The entry_note records the gap."
+  },
+  {
+    q: "The extractor returns an idea whose 'quotes' aren't exact substrings of the tweet. What happens?",
+    options: [
+      "It's stored with a warning flag",
+      "It's dropped mechanically in extract.ts — evidence must be verbatim",
+      "The LLM is re-prompted until quotes match"
+    ],
+    answer: 1,
+    why: "The evidence rule is enforced in code, not just in the prompt: quotes.every(q => haystack.includes(q)). If you can't quote the line carrying the view, you're inventing it."
+  }
+];
+const root = document.getElementById('quiz');
+QUESTIONS.forEach((item, qi) => {
+  const box = document.createElement('div');
+  box.style.cssText = 'background:#f6f7f9;border-radius:8px;padding:1rem;margin:1rem 0;';
+  box.innerHTML = '<p style="margin-top:0"><b>Q' + (qi+1) + '.</b> ' + item.q + '</p>';
+  const fb = document.createElement('p');
+  fb.style.cssText = 'margin-bottom:0;display:none;';
+  item.options.forEach((opt, oi) => {
+    const btn = document.createElement('button');
+    btn.textContent = opt;
+    btn.style.cssText = 'display:block;width:100%;text-align:left;margin:.35rem 0;padding:.5rem .75rem;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer;font:inherit;';
+    btn.onclick = () => {
+      fb.style.display = 'block';
+      const right = oi === item.answer;
+      fb.innerHTML = (right ? '✅ <b>Correct.</b> ' : '❌ <b>Not quite.</b> ') + item.why;
+      fb.style.color = right ? '#0b6e4f' : '#b3261e';
+    };
+    box.appendChild(btn);
+  });
+  box.appendChild(fb);
+  root.appendChild(box);
+});
+</script>
+</body>
+</html>
