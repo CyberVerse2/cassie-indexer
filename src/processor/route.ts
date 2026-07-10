@@ -1,5 +1,4 @@
 import { generateObject } from "ai";
-import { createOpenAI } from "@ai-sdk/openai";
 import { z } from "zod";
 import { config } from "../config";
 import type { ExtractedIdea } from "./extract";
@@ -9,8 +8,7 @@ import * as pm from "../venues/polymarket";
 import * as polygon from "../venues/polygon";
 import * as coingecko from "../venues/coingecko";
 import { withRetry } from "../util/retry";
-
-const openai = createOpenAI({ apiKey: config.openaiApiKey });
+import { resolveModel } from "../util/model";
 
 export interface DerivationStep {
   text: string;
@@ -51,7 +49,7 @@ export async function routeIdea(idea: ExtractedIdea): Promise<RouteDecision> {
 
   const { object } = await withRetry(() =>
     generateObject({
-    model: openai(config.extractorModel),
+    model: resolveModel(config.extractorModel),
     system: `You pick the best tradeable expression for a trade idea from a list of venue-validated candidates. Prefer the most DIRECT expression of what the author actually said; a derived expression must not change the thesis. If every candidate distorts the idea, mark it unrouted. Never invent instruments not in the list.
 
 Also produce the "pipeline": the reasoning chain from the author's words to the chosen instrument, as ordered steps. Tag each step's basis: "quote" when it rests on the author's verbatim words, "market" when it rests on a venue/market fact from the candidates, "inference" when it is your own mapping. Keep steps short and concrete.`,
