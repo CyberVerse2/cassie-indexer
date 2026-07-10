@@ -3,8 +3,6 @@ import { processPending } from "./processor/process";
 import { closeDb } from "./db/client";
 import { config } from "./config";
 
-const HOUR_MS = 3_600_000;
-
 async function runOnce() {
   const collected = await collectAll();
   console.log(
@@ -40,16 +38,18 @@ async function main() {
       break;
     }
     case "daemon": {
-      console.log("[daemon] hourly loop started");
-      // Run immediately, then every hour. A failed sweep logs and waits for
-      // the next tick — the daemon itself never dies.
+      const mins = Math.round(config.collectIntervalMs / 60_000);
+      console.log(`[daemon] loop started — every ${mins} min`);
+      // Run immediately, then every interval. A failed sweep logs and waits for
+      // the next tick — the daemon itself never dies. The interval starts AFTER
+      // each sweep completes, so a slow drain never overlaps the next collect.
       for (;;) {
         try {
           await runOnce();
         } catch (err) {
           console.error(`[daemon] sweep failed: ${err instanceof Error ? err.message : err}`);
         }
-        await new Promise((r) => setTimeout(r, HOUR_MS));
+        await new Promise((r) => setTimeout(r, config.collectIntervalMs));
       }
     }
     default:
