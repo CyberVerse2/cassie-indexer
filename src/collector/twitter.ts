@@ -22,7 +22,6 @@ export interface XMedia {
 export interface TimelinePage {
   tweets: XTweet[];
   media: Map<string, XMedia>;
-  referenced: Map<string, XTweet>; // id -> included tweet (quoted / replied-to)
   newestId?: string;
 }
 
@@ -67,7 +66,12 @@ export async function fetchTimeline(opts: {
   const params: Record<string, string> = {
     max_results: "100",
     "tweet.fields": "created_at,lang,referenced_tweets,attachments,author_id",
-    expansions: "referenced_tweets.id,attachments.media_keys",
+    // NOTE: we deliberately do NOT expand referenced_tweets.id. The parent of a
+    // self-reply is the same author's own tweet, which this very timeline pull
+    // already returns — expanding it re-fetches (and re-bills) tweets we own.
+    // Self-threads are reassembled locally (thread.ts); quoted context is
+    // fetched lazily in the processor only for posts that reach extraction.
+    expansions: "attachments.media_keys",
     "media.fields": "type,url,preview_image_url",
     exclude: "retweets", // policy: pure RTs are not the author's own view
   };
@@ -76,7 +80,6 @@ export async function fetchTimeline(opts: {
 
   const tweets: XTweet[] = [];
   const media = new Map<string, XMedia>();
-  const referenced = new Map<string, XTweet>();
   let newestId: string | undefined;
   let nextToken: string | undefined;
 
@@ -88,12 +91,50 @@ export async function fetchTimeline(opts: {
 
     for (const t of data?.data ?? []) tweets.push(t);
     for (const m of data?.includes?.media ?? []) media.set(m.media_key, m);
-    for (const rt of data?.includes?.tweets ?? []) referenced.set(rt.id, rt);
 
     newestId = newestId ?? data?.meta?.newest_id ?? undefined;
     nextToken = data?.meta?.next_token;
     if (!nextToken) break;
   }
 
-  return { tweets, media, referenced, newestId };
+  return { tweets, media, newestId };
+}
+
+/**
+ * Fetch the text of specific tweets by id (up to 100 per call). Used to pull
+ * quoted-tweet context lazily — only for posts that actually reach extraction —
+ * instead of eagerly expanding every referenced tweet at collection time.
+ */
+export async function fetchTweetsText(ids: string[]): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  if (ids.length === 0) return out;
+  const data = await xGet("/tweets", {
+    ids: ids.slice(0, 100).join(","),
+    "tweet.fields": "text",
+  });
+  for (const t of data?.data ?? []) if (t?.id && t?.text) out.set(t.id, t.text);
+  return out;
+}
+
+/**
+ * Project-level post consumption for the current billing window. Lets the
+ * collector log real usage so cost decisions are measured, not guessed.
+ */
+export async function fetchUsage(): Promise<{
+  projectUsage: number | null;
+  projectCap: number | null;
+  capResetDay: number | null;
+} | null> {
+  try {
+    const data = await xGet("/usage/tweets", {});
+    const u = data?.data ?? data;
+    return {
+      projectUsage: Number(u?.project_usage ?? u?.projectUsage) || null,
+      projectCap: Number(u?.project_cap ?? u?.projectCap) || null,
+      capResetDay: Number(u?.cap_reset_day ?? u?.capResetDay) || null,
+    };
+  } catch (err) {
+    console.warn(`[collect] usage lookup failed: ${err instanceof Error ? err.message : err}`);
+    return null;
+  }
 }
