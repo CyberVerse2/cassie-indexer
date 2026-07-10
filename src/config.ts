@@ -12,12 +12,23 @@ export const config = {
   get openaiApiKey() {
     return required("OPENAI_API_KEY");
   },
+  get twitterApiIoKey() {
+    return required("TWITTERAPI_IO_KEY");
+  },
+  twitterApiIoUrl: process.env.TWITTERAPI_IO_URL ?? "https://api.twitterapi.io",
+  get geminiApiKey() {
+    return required("GEMINI_API_KEY");
+  },
   polygonApiKey: process.env.POLYGON_API_KEY ?? "",
   coingeckoApiKey: process.env.COINGECKO_API_KEY ?? "",
   hyperliquidApiUrl: process.env.HYPERLIQUID_API_URL ?? "https://api.hyperliquid.xyz",
   polymarketGammaUrl:
     process.env.POLYMARKET_GAMMA_API_URL ?? "https://gamma-api.polymarket.com",
+  polymarketClobUrl: process.env.POLYMARKET_CLOB_API_URL ?? "https://clob.polymarket.com",
   collectLookbackHours: Number(process.env.COLLECT_LOOKBACK_HOURS ?? 24),
+  // Daemon cadence. advanced_search bills per NEW tweet, so frequency is ~free —
+  // 5-min polling costs the same as hourly but is far fresher.
+  collectIntervalMs: Number(process.env.COLLECT_INTERVAL_MINUTES ?? 5) * 60_000,
   processBatchSize: Number(process.env.PROCESS_BATCH_SIZE ?? 25),
   extractorModel: process.env.EXTRACTOR_MODEL ?? "gpt-5.4-mini",
   extractorVersion: "v1",
