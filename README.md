@@ -37,15 +37,18 @@ bun run run-once     # one full sweep
 bun run daemon       # hourly loop
 ```
 
-## Serve the feed
+## Reading the feed
+
+This repo is the **indexer only** — it collects, extracts, routes, and prices ideas
+into Postgres. The read API and UI live in **cassie-terminal** (the fullstack app),
+which reads this same database directly. To populate realistic demo cards for it:
 
 ```bash
-bun run demo && bun run process   # optional: populate realistic demo cards
-bun run api                       # read API on :8787
-cd web && bun install && bun run dev   # "The Desk" feed on :5173 (proxies /api)
+bun run demo && bun run process   # optional: seed + process demo cards
 ```
 
-Endpoints: `GET /api/ideas?tab=all|perps|stocks|tokens|markets`, `GET /api/ideas/:id` (full detail incl. `pipeline`), `GET /api/authors/:handle` (track record), `GET /api/status`.
+Then run cassie-terminal (`npm run dev`) — it serves `/api/ideas`, `/api/ideas/:id`,
+`/api/authors/:handle`, and `/api/status` from its own SvelteKit backend.
 
 ## Notes
 
