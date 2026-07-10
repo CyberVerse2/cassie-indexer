@@ -42,14 +42,18 @@ export async function priceRoute(selected: VenueCandidate, postedAt: Date): Prom
       break;
     }
     case "polymarket": {
-      // No historical odds endpoint on Gamma: entry baseline is the price at
-      // indexing time. Honest note recorded; hourly cadence keeps the gap small.
-      currentPrice = await pm.currentPrice(
-        selected.ticker,
-        selected.direction === "no" ? "no" : "yes",
-      );
-      entryPrice = currentPrice;
-      entryNote = "PM price at index time (no historical odds)";
+      const side = selected.direction === "no" ? "no" : "yes";
+      currentPrice = await pm.currentPrice(selected.ticker, side);
+      // Real entry baseline: CLOB odds at post time. Falls back to index-time
+      // price only if the timeseries is unavailable (new/thin markets).
+      const historical = await pm.priceAt(selected.ticker, side, postedAt);
+      if (historical !== null) {
+        entryPrice = historical;
+        entryNote = "PM odds at post time (CLOB history)";
+      } else {
+        entryPrice = currentPrice;
+        entryNote = "PM price at index time (no historical odds)";
+      }
       break;
     }
   }
