@@ -1,15 +1,48 @@
 import { generateText, Output } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
+import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { z } from "zod";
 import { config } from "../config";
 import { withRetry } from "../util/retry";
 
 const openai = createOpenAI({ apiKey: config.openaiApiKey });
+const google = createGoogleGenerativeAI({ apiKey: config.geminiApiKey });
+
+export const horizonSchema = z.enum([
+  "immediate",
+  "short-term",
+  "medium-term",
+  "long-term",
+  "unspecified",
+]);
+
+// One leg of the trade strategy: what to do, and whether the author said it
+// (basis 'author') or we filled the gap (basis 'suggested').
+function strategyComponent(desc: string) {
+  return z.object({
+    text: z.string().describe(`${desc} Keep it under ~15 words.`),
+    basis: z.enum(["author", "suggested"]),
+  });
+}
 
 export const ideaSchema = z.object({
   thesis: z
     .string()
-    .describe("The author's directional belief in one sentence, in your words not theirs."),
+    .describe(
+      "The trade opportunity in one sentence: the subject, the direction, and the core reason. If the author stated a view, capture it; if you derived the opportunity from the situation, state the angle you see.",
+    ),
+  stated_by_author: z
+    .boolean()
+    .describe(
+      "true ONLY if the author explicitly took this side in their own words. false if YOU derived the opportunity from a neutral post (a question, a data relay, a warning, a chart with no stated side). Be honest — never mark a derived opportunity as the author's call.",
+    ),
+  reasoning: z
+    .array(z.string())
+    .min(2)
+    .max(4)
+    .describe(
+      "The WHY behind the opportunity, in 2-4 tight steps: the setup (what happened and why it matters), the edge (why there's a trade here / what the crowd is missing), and the payoff (target / upside and any catalyst). When the author argued it, use their case; when you derived it, work out the why and GROUND it in facts from web search (e.g. a 36% drop → why it fell; odds at 60% → the catalyst). Keep concrete numbers; do not guess facts you haven't grounded.",
+    ),
   subjects: z
     .array(
       z.object({
@@ -19,12 +52,42 @@ export const ideaSchema = z.object({
     )
     .min(1),
   direction: z.enum(["long", "short", "yes", "no"]),
-  horizon: z.string().nullable().describe("The author's timing language verbatim-ish, if any."),
+  horizon: horizonSchema.describe(
+    "Normalized trade horizon. immediate: through 3 days; short-term: 4 days through 4 weeks; medium-term: over 4 weeks through 6 months; long-term: over 6 months; unspecified: timing cannot be determined from the post or catalyst.",
+  ),
+  target: z
+    .string()
+    .nullable()
+    .describe(
+      "The author's STATED price target / upside, ONLY if they gave one — a number ($150, 'PT 200'), a level ('Wave 3', 'prior highs'), or a magnitude ('2x', '+30%'). Keep it short and close to their words. null if the author named no target. Never invent one.",
+    ),
+  invalidation: z
+    .string()
+    .nullable()
+    .describe(
+      "The author's STATED stop / the level or condition that would kill the thesis, ONLY if they gave one ('below the 200 WMA', 'if it loses 60', 'stop at 4.20'). Short, close to their words. null if the author named none. Never invent one.",
+    ),
   conviction: z.enum(["low", "medium", "high"]).nullable(),
+  strategy: z
+    .object({
+      exit: strategyComponent("The overall exit plan in one short sentence."),
+      hold: strategyComponent("How long to hold (e.g. 'days, into the catalyst', '2-3 weeks')."),
+      stop_loss: strategyComponent(
+        "Where to cut: the author's stop if stated, else a sensible level/percent from entry.",
+      ),
+      take_profit: strategyComponent(
+        "Where to take profit: the author's target if stated, else a sensible objective.",
+      ),
+    })
+    .describe(
+      "A COMPLETE strategy for acting on this idea. Components the author stated get basis 'author'; where they said nothing, fill the gap with a reasonable suggestion (basis 'suggested') consistent with their argument, conviction, horizon, and asset class.",
+    ),
   quotes: z
     .array(z.string())
     .min(1)
-    .describe("Exact verbatim substrings of the post that carry the view. Never paraphrase."),
+    .describe(
+      "Exact verbatim substrings of the post — the author's own words. When they stated a side, quote it; when you derived the opportunity, quote the situation they described (the move, the level, the subject). Never paraphrase.",
+    ),
   headline_quote: z.string().describe("One verbatim quote from quotes[], <=120 chars."),
   asset_class: z.enum(["crypto", "equity", "etf", "commodity", "fx", "macro", "event"]),
   context: z.string().describe(
@@ -47,25 +110,44 @@ const extractionSchema = z.object({
 });
 
 export type ExtractedIdea = z.infer<typeof ideaSchema>;
-export type ExtractionResult = z.infer<typeof extractionSchema>;
+export interface Reference {
+  url: string;
+  title: string | null;
+}
+export type ExtractionResult = z.infer<typeof extractionSchema> & {
+  references: Reference[];
+};
 
 // The north star. Every extraction decision is measured against this.
-const SYSTEM = `You extract trade ideas from social posts by finance/trading accounts.
+const SYSTEM = `You turn social posts from finance/trading accounts into actionable trade OPPORTUNITIES.
 
-DEFINITION — a trade idea is a post where the author expresses a directional view on a specific market subject, such that you could act on it. It must clear THREE bars at once:
-1. A SUBJECT — a nameable thing the market prices: an asset, company, sector, macro variable, or binary event. Not a vibe.
-2. A DIRECTION — up/down, long/short, yes/no. Stated or unambiguously implied ("time to fade this rally" = short). If you cannot assign a side, it is NOT an idea.
-3. A PRICE CONSEQUENCE YOU COULD EXPRESS — the view maps to something tradeable, even indirectly. A plausible instrument must exist in principle.
+MINDSET — every post about a market subject is a potential opportunity, not just an explicit call. Your job is not merely to record what the author said — it is to spot the trade in what they are pointing at. When a post names a market subject and something is happening (a move, a catalyst, a data point, a warning, even a question), ask WHY it is happening and whether there is a trade in it, then build it. Bias toward finding the opportunity; when in doubt, it IS one.
 
-EVIDENCE RULE — the author's actual words are the evidence. quotes[] must be exact verbatim substrings of the post; your interpretation goes in thesis. If you cannot quote the line that carries the view, you are inventing it — reject.
+WHAT COUNTS as an opportunity — the post must have BOTH:
+1. A SUBJECT the market prices — a stock, crypto, sector, macro variable, or event. (No nameable subject → not an opportunity.)
+2. SOMETHING TO ACT ON — a move, catalyst, mispricing, setup, level, or an open question worth a directional answer. Stated OR implied by the situation.
 
-GRANULARITY — one belief = one idea. The same belief tradeable different ways is ONE idea with several candidate_tickers, not several ideas. A list of unrelated calls, or a pair trade with two named legs, IS multiple ideas.
+DIRECTION — assign the most likely side (long/short/yes/no). Use the author's side if they stated one; otherwise pick the side the evidence and setup best support (a −36% post-parabola drop → likely short/fade; a breakout-retest-hold → likely long). If genuinely balanced, choose the side the setup favors and mark conviction low. Do not refuse just because the author did not spell out a side — deriving the side IS the job.
 
-EXCLUDE (is_idea = false): neutral news/headline relays with no take; pure macro musing with no directional edge; commentary or quote-tweets that react without a view; jokes, memes, and engagement bait; "nfa/dyor" hedges with no actual side; gm/gn posts. The sharpest line: a view WITHOUT A SIDE, or a subject you cannot name, is not a trade idea.
+STATED vs DERIVED (be honest) — set stated_by_author = true ONLY when the author explicitly took this side in their own words; false when you derived the opportunity from a neutral post (a question, a data relay, a warning, a chart). conviction must reflect this: an explicit strong author call is high; an opportunity you spotted in a neutral post is low. NEVER dress a derived opportunity as the author's own call.
 
-The post may include [QUOTED]/[REPLYING TO] context — the author's view may be a reaction to it (e.g. "this." on a bearish quote = endorsing that side). Attribute the view to the posting author only when they adopt it.
+WHY (the analysis) — reasoning is the WHY: what happened, why it matters, the edge, the payoff/catalyst. When the author argued it, use their case. When you derived it, work out the why and GROUND it in real facts via web search (a 36% drop → find why it fell; Fed-hike odds at 60% → find the catalyst; a bounce in $MU $IREN → find the sector driver). Concrete, grounded — do not speculate facts you have not checked.
 
-WEB SEARCH BOUNDARY — use web search for enrichment only, never as evidence that the author has a view. Decide is_idea, direction, and quotes from the supplied post/context alone. After a post clears the trade-idea bar, use web search to resolve ambiguous subjects, identify fresh event/company/asset context, disambiguate similarly named entities, and improve candidate_tickers. If web search contradicts a ticker guess, correct the ticker; if it reveals no tradeable expression, leave candidate_tickers empty. Do not add facts to thesis or quotes from search results.`;
+EVIDENCE — quotes[] are the author's LITERAL words (exact substrings of the post), the record of what THEY actually said. Your analysis (thesis, reasoning) is separate and may draw on search. If the author stated a side, quote it; if you derived it, quote the situation they described.
+
+GRANULARITY — one opportunity = one idea; the same view tradeable different ways is ONE idea with several candidate_tickers. A list of unrelated names, or a pair trade with two legs, IS multiple ideas.
+
+TARGET & INVALIDATION — fill these ONLY from a level the AUTHOR explicitly stated. Never invent a price level here; a fabricated stated-target is worse than a null one. (The strategy block below is where you may add suggested levels.)
+
+HORIZON — always return exactly one normalized value. "immediate" means the same session through 3 days; "short-term" means 4 days through 4 weeks; "medium-term" means over 4 weeks through 6 months; "long-term" means over 6 months; "unspecified" means the timing cannot be determined from the author's words or a dated catalyst. Classify the intended holding period, not the age of the post. Put the author's original timing language in strategy.hold when they provided it.
+
+STRATEGY — every idea gets a complete strategy: exit, hold, stop_loss, take_profit. A component the author stated gets basis "author"; otherwise construct a disciplined, conservative suggestion (basis "suggested") consistent with the setup, conviction, horizon, and the instrument's volatility. NEVER tag a suggestion as "author".
+
+IMAGES — posts often include a chart or screenshot. Read it: chart patterns, levels, and the numbers in the image are part of the setup and the why. A "breakout/retest" call or a big move is usually shown in the image, not just the text.
+
+CONTEXT — the post may include [CONTINUES THEIR OWN EARLIER TWEET] (the author's own prior words — treat as fully theirs), [QUOTED TWEET] (someone else's — the author's angle may be a reaction to it), or [REPLYING TO SOMEONE ELSE].
+
+REJECT (is_idea = false) ONLY genuine non-opportunities: gm/gn, pure personal chatter, jokes with no subject, logistics/announcements with no market subject. A question about a named stock, a data relay on a named asset, or a warning about a named ticker is NOT a reject — it is an opportunity to analyze. Rejecting a real subject because the author did not state a side is the main mistake to avoid.`;
 
 export async function extractIdeas(input: {
   authorHandle: string;
@@ -73,49 +155,141 @@ export async function extractIdeas(input: {
   referencedText?: string | null;
   isReply?: boolean;
   isSelfReply?: boolean;
+  isSelfQuote?: boolean; // author quoting their OWN earlier tweet
   isQuote?: boolean;
+  imageUrls?: string[]; // chart/screenshot media on the post — fed to the model
   postedAt: Date;
+  model?: string; // override for A/B testing; defaults to config.extractorModel
 }): Promise<ExtractionResult> {
   const parts = [`@${input.authorHandle} posted at ${input.postedAt.toISOString()}:`, input.text];
   if (input.referencedText) {
-    // Label the context by relationship so the model attributes correctly:
-    // a self-thread continues the author's OWN view; a reply-to-others reacts
-    // to someone else and only counts if the author adopts a side themselves.
-    const label = input.isSelfReply
-      ? "CONTINUES THEIR OWN EARLIER TWEET"
-      : input.isReply
-        ? "REPLYING TO SOMEONE ELSE (only an idea if THIS author states their own side)"
-        : "QUOTED TWEET";
+    // Label the context by relationship so the model attributes correctly. A
+    // self-thread OR a self-quote continues the author's OWN view; a reply to
+    // someone else only counts if the author states their own side.
+    const label =
+      input.isSelfReply || input.isSelfQuote
+        ? "CONTINUES THEIR OWN EARLIER TWEET"
+        : input.isReply
+          ? "REPLYING TO SOMEONE ELSE (only an idea if THIS author states their own side)"
+          : "QUOTED TWEET";
     parts.push(`\n[${label}]:\n${input.referencedText}`);
   }
 
-  const { experimental_output } = await withRetry(() =>
-    generateText({
-      model: openai(config.extractorModel),
-      tools: {
-        web_search: openai.tools.webSearch({ searchContextSize: "low" }),
-      },
-      system: SYSTEM,
-      prompt: parts.join("\n"),
-      experimental_output: Output.object({ schema: extractionSchema }),
-      providerOptions: {
-        openai: {
-          maxToolCalls: 6,
-          strictJsonSchema: true,
-        },
-      },
-    }),
-  );
+  const text = parts.join("\n");
+  // Multimodal when the post carries images: send text + each image so the
+  // model can read the chart. Otherwise a plain text prompt.
+  const images = (input.imageUrls ?? []).filter((u) => /^https?:\/\//.test(u)).slice(0, 4);
+  const messages =
+    images.length > 0
+      ? [
+          {
+            role: "user" as const,
+            content: [
+              { type: "text" as const, text },
+              ...images.map((url) => ({ type: "image" as const, image: new URL(url) })),
+            ],
+          },
+        ]
+      : undefined;
+
+  const modelId = input.model ?? config.extractorModel;
+  const isGemini = modelId.startsWith("gemini");
+  const schemaOutput = Output.object({ schema: extractionSchema });
+
+  let extracted: z.infer<typeof extractionSchema>;
+  let sources: Array<{ sourceType?: string; url?: string; title?: string | null }> = [];
+
+  if (isGemini) {
+    // Gemini silently DROPS Google Search grounding when structured output is on
+    // (AI SDK gap: vercel/ai#11599). So do it in two passes: (1) ground with
+    // real search → brief + sources, (2) structure the idea using post + brief.
+    let brief = "";
+    try {
+      const g = await withRetry(() =>
+        generateText({
+          model: google(modelId),
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- provider tool typing quirk
+          tools: { google_search: google.tools.googleSearch({}) as any },
+          system:
+            "Research the market subjects in this post. Return 3-6 short bullets of CURRENT, verifiable facts — what happened, why, key price levels, catalysts, dates. Ground every point in web search; no opinions or trade calls.",
+          prompt: text,
+        }),
+      );
+      brief = g.text;
+      // Gemini exposes citations via providerMetadata.google.groundingMetadata
+      // (groundingChunks), not always via top-level sources — capture both.
+      const gm = (g.providerMetadata?.google as { groundingMetadata?: unknown } | undefined)
+        ?.groundingMetadata as { groundingChunks?: { web?: { uri?: string; title?: string } }[] } | undefined;
+      const chunkSources = (gm?.groundingChunks ?? [])
+        .map((c) => ({ sourceType: "url", url: c.web?.uri, title: c.web?.title ?? null }))
+        .filter((s): s is { sourceType: string; url: string; title: string | null } => Boolean(s.url));
+      sources = g.sources && g.sources.length ? g.sources : chunkSources;
+    } catch {
+      // grounding is best-effort; fall through to structuring on the post alone
+    }
+
+    const groundedText = brief
+      ? `${text}\n\n[GROUNDED RESEARCH — verified facts to use in the reasoning]:\n${brief}`
+      : text;
+    const p2messages =
+      images.length > 0
+        ? [
+            {
+              role: "user" as const,
+              content: [
+                { type: "text" as const, text: groundedText },
+                ...images.map((url) => ({ type: "image" as const, image: new URL(url) })),
+              ],
+            },
+          ]
+        : undefined;
+
+    const r = await withRetry(() =>
+      generateText({
+        model: google(modelId),
+        system: SYSTEM,
+        ...(p2messages ? { messages: p2messages } : { prompt: groundedText }),
+        output: schemaOutput,
+      }),
+    );
+    extracted = r.output;
+  } else {
+    // OpenAI: web_search + structured output work together in one call.
+    const r = await withRetry(() =>
+      generateText({
+        model: openai(modelId),
+        tools: { web_search: openai.tools.webSearch({ searchContextSize: "low" }) },
+        system: SYSTEM,
+        ...(messages ? { messages } : { prompt: text }),
+        output: schemaOutput,
+        providerOptions: { openai: { maxToolCalls: 6, strictJsonSchema: true } },
+      }),
+    );
+    extracted = r.output;
+    sources = r.sources ?? [];
+  }
+
+  // Capture the web-search citations the model actually consulted — the sources
+  // behind the enrichment (context/tickers), shown as references on the idea.
+  // Dedupe by URL; most posts trigger no search and yield none.
+  const references: Reference[] = [];
+  const seen = new Set<string>();
+  for (const source of sources ?? []) {
+    if (source.sourceType !== "url" || !source.url || seen.has(source.url)) continue;
+    seen.add(source.url);
+    references.push({ url: source.url, title: source.title ?? null });
+  }
 
   // Enforce the evidence rule mechanically, not just by prompt: drop any idea
   // whose quotes aren't actually in the post text.
   const haystack = `${input.text}\n${input.referencedText ?? ""}`;
-  const verified = experimental_output.ideas.filter((idea) =>
+  const verified = extracted.ideas.filter((idea) =>
     idea.quotes.every((q) => haystack.includes(q)),
   );
   return {
-    ...experimental_output,
+    ...extracted,
     ideas: verified,
-    is_idea: experimental_output.is_idea && verified.length > 0,
+    is_idea: extracted.is_idea && verified.length > 0,
+    references,
   };
 }
