@@ -5,6 +5,7 @@ CREATE TABLE "paper_accounts" (
   "created_at" timestamp with time zone DEFAULT now() NOT NULL,
   "updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
+--> statement-breakpoint
 
 CREATE TABLE "paper_orders" (
   "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
@@ -24,8 +25,10 @@ CREATE TABLE "paper_orders" (
   "created_at" timestamp with time zone DEFAULT now() NOT NULL,
   "filled_at" timestamp with time zone
 );
+--> statement-breakpoint
 
 CREATE INDEX "paper_orders_account_created_idx" ON "paper_orders" ("account_id", "created_at");
+--> statement-breakpoint
 
 CREATE TABLE "paper_positions" (
   "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
@@ -36,6 +39,7 @@ CREATE TABLE "paper_positions" (
   "venue" text NOT NULL,
   "instrument" text NOT NULL,
   "ticker" text NOT NULL,
+  "market_label" text NOT NULL,
   "direction" text NOT NULL,
   "status" text DEFAULT 'open' NOT NULL,
   "collateral_usd" numeric(20, 2) NOT NULL,
@@ -51,5 +55,6 @@ CREATE TABLE "paper_positions" (
   "closed_at" timestamp with time zone,
   "close_price" numeric(20, 8)
 );
+--> statement-breakpoint
 
 CREATE INDEX "paper_positions_account_status_idx" ON "paper_positions" ("account_id", "status", "opened_at");
