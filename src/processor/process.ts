@@ -5,9 +5,34 @@ import { extractIdeas } from "./extract";
 import { routeIdea } from "./route";
 import { priceRoute } from "./price";
 import { assembleThread } from "./thread";
+import { fetchTweetsText } from "../collector/twitter";
 
 const { rawPosts, tradeIdeas, routes, routePricing } = schema;
 type Post = typeof rawPosts.$inferSelect;
+
+/**
+ * Resolve the referenced-tweet context for a thread root. Legacy rows carry it
+ * inline (eager expansion); new rows don't — so we fetch the QUOTED tweet's
+ * text lazily here, only for a post that has actually reached extraction. (A
+ * self-thread's own parents are already in the assembled text; replies to other
+ * people are skipped before this runs, so in practice this resolves quotes.)
+ */
+async function resolveReferencedText(root: Post): Promise<string | null> {
+  if (root.referencedText) return root.referencedText;
+  const refs = (root.raw as { referenced_tweets?: { type: string; id: string }[] } | null)
+    ?.referenced_tweets;
+  const ids = (refs ?? []).filter((r) => r.type === "quoted").map((r) => r.id);
+  if (ids.length === 0) return null;
+  try {
+    const texts = await fetchTweetsText(ids);
+    return ids.map((id) => texts.get(id)).filter(Boolean).join("\n---\n") || null;
+  } catch (err) {
+    console.warn(
+      `[process] quoted-context fetch failed for ${root.tweetId}: ${err instanceof Error ? err.message : err}`,
+    );
+    return null;
+  }
+}
 
 /**
  * Stage 2 — Processor. Drains raw_posts where status='pending' (from the DB,
@@ -110,14 +135,34 @@ async function processThread(thread: Post[]): Promise<{ ideas: number; routed: n
       ? root.text
       : thread.map((t, i) => `(${i + 1}/${thread.length}) ${t.text}`).join("\n\n");
 
-  // ① Gate + extract — one call for the whole thread, against the north star.
+  // Self-quote: the author quoting their OWN earlier tweet — treat its context
+  // as fully theirs. twitterapi.io inlines quoted_tweet with its author.
+  const rawRoot = root.raw as {
+    author?: { id?: string };
+    quoted_tweet?: { author?: { id?: string } };
+  } | null;
+  const isSelfQuote =
+    root.isQuote &&
+    Boolean(rawRoot?.quoted_tweet?.author?.id) &&
+    rawRoot?.quoted_tweet?.author?.id === rawRoot?.author?.id;
+
+  // Images across all thread members — charts/screenshots the model should read.
+  const imageUrls = thread
+    .flatMap((t) => (t.media ?? []) as { type: string; url?: string }[])
+    .filter((m) => m.type !== "video" && m.url)
+    .map((m) => m.url!)
+    .slice(0, 4);
+
+  // ① Gate + extract — one call for the whole thread, opportunity-first.
   const extraction = await extractIdeas({
     authorHandle: root.authorHandle,
     text: assembledText,
-    referencedText: root.referencedText,
+    referencedText: await resolveReferencedText(root),
     isReply: root.isReply,
     isSelfReply: root.isSelfReply,
+    isSelfQuote,
     isQuote: root.isQuote,
+    imageUrls,
     postedAt: root.postedAt,
   });
 
@@ -133,14 +178,25 @@ async function processThread(thread: Post[]): Promise<{ ideas: number; routed: n
         authorHandle: root.authorHandle,
         postedAt: root.postedAt,
         thesis: idea.thesis,
+        reasoning: idea.reasoning,
         subjects: idea.subjects,
         direction: idea.direction,
+        statedByAuthor: idea.stated_by_author,
         horizon: idea.horizon,
+        target: idea.target,
+        invalidation: idea.invalidation,
+        strategy: {
+          exit: idea.strategy.exit,
+          hold: idea.strategy.hold,
+          stopLoss: idea.strategy.stop_loss,
+          takeProfit: idea.strategy.take_profit,
+        },
         conviction: idea.conviction,
         quotes: idea.quotes,
         headlineQuote: idea.headline_quote,
         assetClass: idea.asset_class,
         context: idea.context,
+        references: extraction.references.length ? extraction.references : null,
         candidateTickers: idea.candidate_tickers,
         extractorVersion: config.extractorVersion,
         model: config.extractorModel,
