@@ -12,14 +12,14 @@
     "process": "bun run src/cli.ts process",
     "run-once": "bun run src/cli.ts run",
     "daemon": "bun run src/cli.ts daemon",
-    "api": "bun run src/api/server.ts",
+    "backfill:horizons": "bun run scripts/normalize-horizons.ts",
     "demo": "bun run scripts/seed-demo.ts"
   },
   "dependencies": {
-    "@ai-sdk/openai": "^2.0.0",
-    "ai": "^5.0.0",
+    "@ai-sdk/google": "4",
+    "@ai-sdk/openai": "4",
+    "ai": "7",
     "drizzle-orm": "^0.44.0",
-    "hono": "^4.12.28",
     "postgres": "^3.4.5",
     "zod": "^3.24.0"
   },
