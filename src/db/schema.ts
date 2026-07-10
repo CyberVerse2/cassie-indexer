@@ -81,11 +81,26 @@ export const tradeIdeas = pgTable(
     authorHandle: text("author_handle").notNull(),
     postedAt: timestamp("posted_at", { withTimezone: true }).notNull(),
     thesis: text("thesis").notNull(), // interpreted reading, our words
+    reasoning: jsonb("reasoning").$type<string[]>(), // author's investment case (setup→edge→payoff)
     subjects: jsonb("subjects")
       .$type<{ label: string; kind: "asset" | "company" | "sector" | "macro" | "event" }[]>()
       .notNull(),
     direction: text("direction", { enum: ["long", "short", "yes", "no"] }).notNull(),
-    horizon: text("horizon"), // author's timing language, if any
+    statedByAuthor: boolean("stated_by_author"), // true = author's explicit call; false = opportunity we derived
+    horizon: text("horizon", {
+      enum: ["immediate", "short-term", "medium-term", "long-term", "unspecified"],
+    }),
+    target: text("target"), // author's stated price target / upside, if any (verbatim-ish)
+    invalidation: text("invalidation"), // author's stated stop / level that kills the thesis, if any
+    // Complete trade strategy — every idea gets one. Components the author
+    // stated are basis:'author'; gaps are filled with basis:'suggested' so a
+    // derived stop can never masquerade as the author's plan.
+    strategy: jsonb("strategy").$type<{
+      exit: { text: string; basis: "author" | "suggested" };
+      hold: { text: string; basis: "author" | "suggested" };
+      stopLoss: { text: string; basis: "author" | "suggested" };
+      takeProfit: { text: string; basis: "author" | "suggested" };
+    }>(),
     conviction: text("conviction", { enum: ["low", "medium", "high"] }),
     quotes: jsonb("quotes").$type<string[]>().notNull(), // verbatim, frozen
     headlineQuote: text("headline_quote").notNull(),
@@ -93,6 +108,7 @@ export const tradeIdeas = pgTable(
       enum: ["crypto", "equity", "etf", "commodity", "fx", "macro", "event"],
     }).notNull(),
     context: text("context"), // plain-English explainer of the subject, no view
+    references: jsonb("references").$type<{ url: string; title: string | null }[]>(), // web-search citations behind enrichment
     candidateTickers: jsonb("candidate_tickers").$type<string[]>().notNull(),
     status: text("status", { enum: ["extracted", "routed", "unrouted", "priced"] })
       .notNull()
