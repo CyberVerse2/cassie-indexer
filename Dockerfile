@@ -7,4 +7,4 @@ RUN bun install --frozen-lockfile
 
 COPY . .
 
-CMD ["sh", "-c", "bun run db:migrate && exec bun run daemon"]
+CMD ["sh", "-c", "bun run db:migrate && bun run seed && exec bun run daemon"]
