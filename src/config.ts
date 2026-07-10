@@ -25,7 +25,6 @@ export const config = {
   polymarketGammaUrl:
     process.env.POLYMARKET_GAMMA_API_URL ?? "https://gamma-api.polymarket.com",
   polymarketClobUrl: process.env.POLYMARKET_CLOB_API_URL ?? "https://clob.polymarket.com",
-  collectLookbackHours: Number(process.env.COLLECT_LOOKBACK_HOURS ?? 24),
   // Daemon cadence. advanced_search bills per NEW tweet, so frequency is ~free —
   // 5-min polling costs the same as hourly but is far fresher.
   collectIntervalMs: Number(process.env.COLLECT_INTERVAL_MINUTES ?? 5) * 60_000,

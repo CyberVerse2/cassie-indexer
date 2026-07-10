@@ -1,4 +1,4 @@
-import { asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, gte, inArray } from "drizzle-orm";
 import { db, schema } from "../db/client";
 import { config } from "../config";
 import { extractIdeas } from "./extract";
@@ -48,10 +48,11 @@ export async function processPending(): Promise<{
   routed: number;
   failed: number;
 }> {
+  const cutoff = new Date(Date.now() - 5 * 60_000);
   const pending = await db
     .select()
     .from(rawPosts)
-    .where(eq(rawPosts.status, "pending"))
+    .where(and(eq(rawPosts.status, "pending"), gte(rawPosts.postedAt, cutoff)))
     .orderBy(asc(rawPosts.postedAt))
     .limit(config.processBatchSize);
 

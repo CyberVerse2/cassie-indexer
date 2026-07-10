@@ -1,6 +1,5 @@
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { db, schema } from "../db/client";
-import { config } from "../config";
 import { searchTweets, toSinceOperator, type TApiTweet } from "./twitterapi";
 
 const { sources, rawPosts } = schema;
@@ -10,11 +9,7 @@ type Source = typeof sources.$inferSelect;
 // caps length (~512 chars); "from:handle OR " averages ~20 chars, so 20 leaves
 // headroom for the since: clause. 80 handles → ~4 queries per cycle.
 const BATCH_SIZE = 20;
-// Re-read a small overlap so a tweet that lands late (eventual consistency)
-// isn't skipped by the watermark. Dedup on tweet_id keeps rows clean, but the
-// re-read tweets ARE re-billed — so keep the overlap tight (≈ one cadence tick).
-// twitterapi.io indexes within seconds, so a few minutes is ample.
-const WATERMARK_OVERLAP_MIN = 5;
+const COLLECTION_WINDOW_MINUTES = 5;
 const MAX_PAGES_PER_BATCH = 10;
 
 /**
@@ -27,14 +22,7 @@ export async function collectAll(): Promise<{ fetched: number; sources: number; 
   const tracked = await db.select().from(sources).where(eq(sources.tracked, true));
   const byHandle = new Map(tracked.map((s) => [s.handle.toLowerCase(), s]));
 
-  // Watermark = newest tweet we've stored, minus a safety overlap. First run
-  // (empty DB) falls back to the configured lookback window.
-  const [{ newest }] = await db
-    .select({ newest: sql<string | null>`max(${rawPosts.postedAt})` })
-    .from(rawPosts);
-  const since = newest
-    ? new Date(new Date(newest).getTime() - WATERMARK_OVERLAP_MIN * 60_000)
-    : new Date(Date.now() - config.collectLookbackHours * 3_600_000);
+  const since = new Date(Date.now() - COLLECTION_WINDOW_MINUTES * 60_000);
 
   let fetched = 0;
   let errors = 0;
