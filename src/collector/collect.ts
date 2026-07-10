@@ -1,110 +1,121 @@
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { db, schema } from "../db/client";
 import { config } from "../config";
-import { fetchTimeline, resolveUserId, type TimelinePage, type XTweet } from "./twitter";
+import { searchTweets, toSinceOperator, type TApiTweet } from "./twitterapi";
 
 const { sources, rawPosts } = schema;
+type Source = typeof sources.$inferSelect;
+
+// How many authors to OR into one advanced_search query. Twitter's query grammar
+// caps length (~512 chars); "from:handle OR " averages ~20 chars, so 20 leaves
+// headroom for the since: clause. 80 handles → ~4 queries per cycle.
+const BATCH_SIZE = 20;
+// Re-read a small overlap so a tweet that lands late (eventual consistency)
+// isn't skipped by the watermark. Dedup on tweet_id keeps rows clean, but the
+// re-read tweets ARE re-billed — so keep the overlap tight (≈ one cadence tick).
+// twitterapi.io indexes within seconds, so a few minutes is ample.
+const WATERMARK_OVERLAP_MIN = 5;
+const MAX_PAGES_PER_BATCH = 10;
 
 /**
- * Stage 1 — Collector.
- * One unit of work per tracked source: fetch new tweets since the cursor,
- * land them durably in raw_posts (idempotent on tweet_id), advance the cursor.
- * No LLM work, no market calls: if everything downstream breaks, we still
- * have the posts.
+ * Stage 1 — Collector (twitterapi.io advanced_search).
+ * One `(from:a OR from:b …) since:<watermark>` query per batch of authors
+ * returns ONLY tweets newer than what we already have — so cost scales with new
+ * tweets, not poll frequency. Lands them in raw_posts (idempotent on tweet_id).
  */
 export async function collectAll(): Promise<{ fetched: number; sources: number; errors: number }> {
   const tracked = await db.select().from(sources).where(eq(sources.tracked, true));
+  const byHandle = new Map(tracked.map((s) => [s.handle.toLowerCase(), s]));
+
+  // Watermark = newest tweet we've stored, minus a safety overlap. First run
+  // (empty DB) falls back to the configured lookback window.
+  const [{ newest }] = await db
+    .select({ newest: sql<string | null>`max(${rawPosts.postedAt})` })
+    .from(rawPosts);
+  const since = newest
+    ? new Date(new Date(newest).getTime() - WATERMARK_OVERLAP_MIN * 60_000)
+    : new Date(Date.now() - config.collectLookbackHours * 3_600_000);
+
   let fetched = 0;
   let errors = 0;
 
-  // Sequential with per-source isolation: one bad handle must not stall the
-  // rest, and X rate limits are per-endpoint so parallel fan-out buys little.
-  for (const source of tracked) {
+  for (const batch of chunk(tracked, BATCH_SIZE)) {
     try {
-      fetched += await collectSource(source);
+      fetched += await collectBatch(batch, since, byHandle);
     } catch (err) {
       errors++;
       const message = err instanceof Error ? err.message : String(err);
-      console.error(`[collect] @${source.handle}: ${message}`);
-      await db
-        .update(sources)
-        .set({ lastError: message.slice(0, 500), lastErrorAt: new Date() })
-        .where(eq(sources.id, source.id));
+      console.error(`[collect] batch ${batch[0].handle}…: ${message}`);
     }
-  }
-
-  return { fetched, sources: tracked.length, errors };
-}
-
-async function collectSource(source: typeof sources.$inferSelect): Promise<number> {
-  // Handles get renamed; the numeric user id is the stable key. Resolve once.
-  let userId = source.xUserId;
-  if (!userId) {
-    userId = await resolveUserId(source.handle);
-    await db.update(sources).set({ xUserId: userId }).where(eq(sources.id, source.id));
-  }
-
-  const page = await fetchTimeline({
-    userId,
-    sinceId: source.lastTweetId ?? undefined,
-    startTime: source.lastTweetId
-      ? undefined
-      : new Date(Date.now() - config.collectLookbackHours * 3_600_000),
-  });
-
-  for (const tweet of page.tweets) {
-    await upsertPost(source, tweet, page);
   }
 
   await db
     .update(sources)
-    .set({
-      lastPolledAt: new Date(),
-      // newest_id only moves forward; keep the old cursor when nothing new.
-      ...(page.newestId ? { lastTweetId: page.newestId } : {}),
-    })
-    .where(eq(sources.id, source.id));
+    .set({ lastPolledAt: new Date() })
+    .where(eq(sources.tracked, true));
 
-  if (page.tweets.length > 0) {
-    console.log(`[collect] @${source.handle}: +${page.tweets.length}`);
-  }
-  return page.tweets.length;
+  return { fetched, sources: tracked.length, errors };
 }
 
-async function upsertPost(
-  source: typeof sources.$inferSelect,
-  tweet: XTweet,
-  page: TimelinePage,
-) {
-  const refs = tweet.referenced_tweets ?? [];
-  const isReply = refs.some((r) => r.type === "replied_to");
-  const isQuote = refs.some((r) => r.type === "quoted");
-  const isRetweet = refs.some((r) => r.type === "retweeted");
+async function collectBatch(
+  batch: Source[],
+  since: Date,
+  byHandle: Map<string, Source>,
+): Promise<number> {
+  // Exclude replies-to-others AT THE API (we discard them anyway) while keeping
+  // self-threads: `-filter:replies OR filter:self_threads`. Cuts ~30% of fetched
+  // (and billed) tweets. Verified against twitterapi.io's X-grammar passthrough.
+  const authors = batch.map((s) => `from:${s.handle}`).join(" OR ");
+  const query = `(${authors}) (-filter:replies OR filter:self_threads) since:${toSinceOperator(since)}`;
+  let cursor = "";
+  let inserted = 0;
 
-  // Self-reply = the author replying to their OWN tweet (a thread continuation),
-  // vs replying to someone else (a conversation). Detected by comparing authors
-  // of this tweet and the tweet it replies to. Both author_ids are already
-  // fetched (tweet.fields=author_id applies to included referenced tweets too).
-  const repliedTo = refs.find((r) => r.type === "replied_to");
-  const replyToTweetId = repliedTo?.id ?? null;
-  const parent = repliedTo ? page.referenced.get(repliedTo.id) : undefined;
-  const isSelfReply = Boolean(parent && parent.author_id === tweet.author_id);
+  for (let page = 0; page < MAX_PAGES_PER_BATCH; page++) {
+    const { tweets, hasNextPage, nextCursor } = await searchTweets({ query, cursor });
+    if (tweets.length === 0) break;
 
-  // Quoted / replied-to context often carries the thesis the author reacts
-  // to — store its text inline so extraction sees the full picture.
-  const referencedText =
-    refs
-      .map((r) => page.referenced.get(r.id))
-      .filter((t): t is XTweet => Boolean(t))
-      .map((t) => t.text)
-      .join("\n---\n") || null;
+    for (const tweet of tweets) {
+      const handle = tweet.author?.userName?.toLowerCase();
+      const source = handle ? byHandle.get(handle) : undefined;
+      if (!source) continue; // defensive: search shouldn't return off-list authors
+      if (await upsertPost(source, tweet)) inserted++;
+    }
 
-  const media = (tweet.attachments?.media_keys ?? [])
-    .map((k) => page.media.get(k))
-    .filter((m): m is NonNullable<typeof m> => Boolean(m))
-    .map((m) => ({ type: m.type, url: m.url ?? m.preview_image_url }));
+    if (!hasNextPage) break;
+    cursor = nextCursor;
+    if (page === MAX_PAGES_PER_BATCH - 1) {
+      // Hit the cap with more pages available — the watermark will advance past
+      // the unread older tweets, leaving a gap. Fine at steady cadence; a signal
+      // to poll more often if it recurs.
+      console.warn(`[collect] batch ${batch[0].handle}… hit page cap; older tweets skipped`);
+    }
+  }
 
-  await db
+  return inserted;
+}
+
+/** Map one twitterapi.io tweet into raw_posts. Returns false for retweets
+ * (policy: pure RTs aren't the author's own view) so they're skipped. */
+async function upsertPost(source: Source, tweet: TApiTweet): Promise<boolean> {
+  const isRetweet = Boolean(tweet.retweeted_tweet) || tweet.text.startsWith("RT @");
+  if (isRetweet) return false;
+
+  const authorId = tweet.author?.id ?? null;
+  const isReply = Boolean(tweet.isReply);
+  // Self-reply = author continuing their own thread. One field, no expansion:
+  // the replied-to user is the author themselves.
+  const isSelfReply = isReply && authorId != null && tweet.inReplyToUserId === authorId;
+  const isQuote = Boolean(tweet.quoted_tweet?.text);
+
+  // Quoted context is INLINED by twitterapi.io — capture it here, free.
+  const referencedText = tweet.quoted_tweet?.text ?? null;
+
+  const mediaList = tweet.extendedEntities?.media ?? tweet.entities?.media ?? [];
+  const media = mediaList
+    .map((m) => ({ type: m.type ?? "photo", url: m.media_url_https }))
+    .filter((m): m is { type: string; url: string } => Boolean(m.url));
+
+  const inserted = await db
     .insert(rawPosts)
     .values({
       tweetId: tweet.id,
@@ -112,15 +123,24 @@ async function upsertPost(
       authorHandle: source.handle,
       text: tweet.text,
       lang: tweet.lang,
-      postedAt: new Date(tweet.created_at),
+      postedAt: new Date(tweet.createdAt),
       isReply,
       isSelfReply,
       isQuote,
-      isRetweet,
-      replyToTweetId,
+      isRetweet: false,
+      replyToTweetId: tweet.inReplyToId ?? null,
       referencedText,
       media: media.length ? media : null,
       raw: tweet,
     })
-    .onConflictDoNothing({ target: rawPosts.tweetId });
+    .onConflictDoNothing({ target: rawPosts.tweetId })
+    .returning({ id: rawPosts.tweetId });
+  // Empty when the tweet was already stored (overlap window) — only count new.
+  return inserted.length > 0;
+}
+
+function chunk<T>(arr: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
 }
