@@ -1,0 +1,88 @@
+# X List — accounts to add
+
+The 80 tracked handles from `sources` (tracked = true). Add each to the X List backing the collector's List-timeline pull. Check off as you go.
+
+_Generated 2026-07-09 from the cassie_indexer database._
+
+- [ ] [@5_utr](https://x.com/5_utr) — NonsparseOncologist
+- [ ] [@adamfeuerstein](https://x.com/adamfeuerstein) — Adam Feuerstein ✡️
+- [ ] [@akshaybd](https://x.com/akshaybd) — Akshay BD
+- [ ] [@aleabitoreddit](https://x.com/aleabitoreddit) — Serenity
+- [ ] [@amitisinvesting](https://x.com/amitisinvesting) — AmitIsInvesting
+- [ ] [@atelicinvest](https://x.com/atelicinvest) — Unemployed Capital Allocator
+- [ ] [@au_xbt](https://x.com/au_xbt) — AU🧲
+- [ ] [@based16z](https://x.com/based16z) — based16z
+- [ ] [@bayeslord](https://x.com/bayeslord) — bayes
+- [ ] [@BenBajarin](https://x.com/BenBajarin) — Ben Bajarin
+- [ ] [@BillAckman](https://x.com/BillAckman) — Bill Ackman
+- [ ] [@blknoiz06](https://x.com/blknoiz06) — Ansem
+- [ ] [@bowenkang](https://x.com/bowenkang) — —
+- [ ] [@bubbleboi](https://x.com/bubbleboi) — bubble boi
+- [ ] [@bwenews](https://x.com/bwenews) — 方程式新闻 BWEnews 🏎️
+- [ ] [@CapitalShipyard](https://x.com/CapitalShipyard) — Shipyard Capital
+- [ ] [@chamath](https://x.com/chamath) — Chamath Palihapitiya
+- [ ] [@ChipsandWafers](https://x.com/ChipsandWafers) — Chips & Wafers
+- [ ] [@citrini](https://x.com/citrini) — Citrini
+- [ ] [@ContrarianCurse](https://x.com/ContrarianCurse) — SuspendedCap
+- [ ] [@crypto_condom](https://x.com/crypto_condom) — CryptoCondom
+- [ ] [@damnang2](https://x.com/damnang2) — Damnang2
+- [ ] [@degentradingLSD](https://x.com/degentradingLSD) — degentrading
+- [ ] [@DeItaone](https://x.com/DeItaone) — Walter Bloomberg
+- [ ] [@DivesTech](https://x.com/DivesTech) — Dan Ives
+- [ ] [@dnystedt](https://x.com/dnystedt) — —
+- [ ] [@downingARK](https://x.com/downingARK) — Frank Downing
+- [ ] [@DrJStrategy](https://x.com/DrJStrategy) — James E. Thorne
+- [ ] [@dylan522p](https://x.com/dylan522p) — Dylan Patel
+- [ ] [@Evan_ss6](https://x.com/Evan_ss6) — Evanss6
+- [ ] [@financialjuice](https://x.com/financialjuice) — FinancialJuice
+- [ ] [@FirstSquawk](https://x.com/FirstSquawk) — FirstSquawk
+- [ ] [@fuckpoasting](https://x.com/fuckpoasting) — fudge
+- [ ] [@goodalexander](https://x.com/goodalexander) — goodalexander
+- [ ] [@HiCagr](https://x.com/HiCagr) — high cagr
+- [ ] [@ID_AA_Carmack](https://x.com/ID_AA_Carmack) — —
+- [ ] [@jukan05](https://x.com/jukan05) — Jukan
+- [ ] [@jwt0625](https://x.com/jwt0625) — outside five sigma
+- [ ] [@kevg1412](https://x.com/kevg1412) — Kevin Gee
+- [ ] [@KobeissiLetter](https://x.com/KobeissiLetter) — The Kobeissi Letter
+- [ ] [@labubu_trader](https://x.com/labubu_trader) — 3X Long Labubu
+- [ ] [@levie](https://x.com/levie) — Aaron Levie
+- [ ] [@LynAldenContact](https://x.com/LynAldenContact) — Lyn Alden
+- [ ] [@MarceloLima](https://x.com/MarceloLima) — Marcelo P. Lima
+- [ ] [@markminervini](https://x.com/markminervini) — Mark Minervini
+- [ ] [@MartinShkreli](https://x.com/MartinShkreli) — Martin Shkreli
+- [ ] [@matthewherper](https://x.com/matthewherper) — Matthew Herper
+- [ ] [@michaeljburry](https://x.com/michaeljburry) — Cassandra Unchained
+- [ ] [@MoneyPrinter0x](https://x.com/MoneyPrinter0x) — MP
+- [ ] [@MTSlive](https://x.com/MTSlive) — MTS
+- [ ] [@negligible_cap](https://x.com/negligible_cap) — Negligible Capital
+- [ ] [@OInvests](https://x.com/OInvests) — Oli
+- [ ] [@pcbanalysis](https://x.com/pcbanalysis) — —
+- [ ] [@pequityresearch](https://x.com/pequityresearch) — P Equity Research 📰
+- [ ] [@PeterBerezinBCA](https://x.com/PeterBerezinBCA) — Peter Berezin
+- [ ] [@PeterSchiff](https://x.com/PeterSchiff) — Peter Schiff
+- [ ] [@pgsa_iran](https://x.com/pgsa_iran) — PGSA 
+- [ ] [@podcastalpha](https://x.com/podcastalpha) — —
+- [ ] [@R_and_Invest](https://x.com/R_and_Invest) — Research & Invest
+- [ ] [@rasmr_eth](https://x.com/rasmr_eth) — rasmr
+- [ ] [@RealJimChanos](https://x.com/RealJimChanos) — James Chanos
+- [ ] [@RHouseResearch](https://x.com/RHouseResearch) — Rittenhouse Research
+- [ ] [@RJCcapital](https://x.com/RJCcapital) — RJC
+- [ ] [@Saldivva](https://x.com/Saldivva) — —
+- [ ] [@SemiAnalysis_](https://x.com/SemiAnalysis_) — SemiAnalysis
+- [ ] [@ShanuMathew93](https://x.com/ShanuMathew93) — Shanu Mathew
+- [ ] [@Shaughnessy119](https://x.com/Shaughnessy119) — Tommy
+- [ ] [@SoskaKyle](https://x.com/SoskaKyle) — Kyle Soska
+- [ ] [@teortaxesTex](https://x.com/teortaxesTex) — —
+- [ ] [@TheLongInvest](https://x.com/TheLongInvest) — The Long Investor
+- [ ] [@TheShortBear](https://x.com/TheShortBear) — THE SHORT BEAR
+- [ ] [@TheStalwart](https://x.com/TheStalwart) — Joe Weisenthal
+- [ ] [@ThinkingUSD](https://x.com/ThinkingUSD) — Flood
+- [ ] [@tradfi](https://x.com/tradfi) — tradfi news
+- [ ] [@Tyler_Neville_](https://x.com/Tyler_Neville_) — Tyler Neville
+- [ ] [@TylerDurden](https://x.com/TylerDurden) — —
+- [ ] [@wallstengine](https://x.com/wallstengine) — Wall St Engine
+- [ ] [@willoptions](https://x.com/willoptions) — will.js
+- [ ] [@zephyr_z9](https://x.com/zephyr_z9) — Zephyr
+- [ ] [@zerohedge](https://x.com/zerohedge) — zerohedge
+
+**Total: 80 accounts**
