@@ -8,6 +8,13 @@
       "when": 1783654433224,
       "tag": "0000_safe_wiccan",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1783656491976,
+      "tag": "0001_paper_trading",
+      "breakpoints": true
     }
   ]
 }
