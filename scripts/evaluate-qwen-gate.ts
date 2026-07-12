@@ -4,18 +4,29 @@ import { gateTradeIdea, type ExtractIdeasInput } from "../src/processor/extract"
 import { assembleThread } from "../src/processor/thread";
 
 const sampleSize = Number(process.env.SAMPLE_SIZE ?? 200);
+const balancedPerClass = Number(process.env.BALANCED_PER_CLASS ?? 0);
 const concurrency = Number(process.env.CONCURRENCY ?? 8);
 const { rawPosts, tradeIdeas } = schema;
 
 const currentIdeaRows = await db.selectDistinct({ tweetId: tradeIdeas.tweetId }).from(tradeIdeas);
 const currentIdeaTweetIds = new Set(currentIdeaRows.map((row) => row.tweetId));
 
-const roots = await db
+const eligibleRoots = await db
   .select()
   .from(rawPosts)
   .where(and(eq(rawPosts.status, "processed"), eq(rawPosts.isReply, false)))
-  .orderBy(sql`random()`)
-  .limit(sampleSize);
+  .orderBy(sql`random()`);
+
+const roots = balancedPerClass
+  ? [
+      ...eligibleRoots
+        .filter((root) => currentIdeaTweetIds.has(root.tweetId))
+        .slice(0, balancedPerClass),
+      ...eligibleRoots
+        .filter((root) => !currentIdeaTweetIds.has(root.tweetId))
+        .slice(0, balancedPerClass),
+    ].sort(() => Math.random() - 0.5)
+  : eligibleRoots.slice(0, sampleSize);
 
 type Result = {
   tweetId: string;
