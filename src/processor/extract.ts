@@ -3,6 +3,7 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { z } from "zod";
 import { config } from "../config";
+import { generateQwenJson, type QwenContent } from "../util/qwen";
 import { withRetry } from "../util/retry";
 
 const openai = createOpenAI({ apiKey: config.openaiApiKey });
@@ -109,6 +110,24 @@ const extractionSchema = z.object({
   ideas: z.array(ideaSchema).max(5),
 });
 
+const gateSchema = z.object({
+  is_idea: z.boolean(),
+  reject_reason: z.string().nullable(),
+});
+
+const GATE_SYSTEM = `You are the high-recall first gate for a financial trade-idea indexer.
+
+Return JSON only with exactly this shape:
+{"is_idea": boolean, "reject_reason": string | null}
+
+Pass a post when it has BOTH:
+1. A subject the market prices: an asset, company, sector, macro variable, or event.
+2. Something actionable: a move, catalyst, mispricing, setup, level, warning, data point, or open question from which a direction could reasonably be derived.
+
+The author does not need to state long/short explicitly. Questions, neutral data relays, warnings, and charts about a named market subject must pass. Read supplied images because the actionable setup may exist only in a chart or screenshot. When uncertain, pass.
+
+Reject only genuine non-opportunities: greetings, personal chatter, jokes with no priced subject, or logistics/announcements with no market subject. Set reject_reason to a short explanation only when rejecting; otherwise null.`;
+
 export type ExtractedIdea = z.infer<typeof ideaSchema>;
 export interface Reference {
   url: string;
@@ -191,6 +210,30 @@ export async function extractIdeas(input: {
           },
         ]
       : undefined;
+
+  const gateContent: QwenContent =
+    images.length > 0
+      ? [
+          { type: "text", text },
+          ...images.map((url) => ({ type: "image_url" as const, image_url: { url } })),
+        ]
+      : text;
+  const gate = await withRetry(() =>
+    generateQwenJson({
+      system: GATE_SYSTEM,
+      content: gateContent,
+      schema: gateSchema,
+      maxTokens: 200,
+    }),
+  );
+  if (!gate.is_idea) {
+    return {
+      is_idea: false,
+      reject_reason: gate.reject_reason ?? "rejected by Qwen pre-gate",
+      ideas: [],
+      references: [],
+    };
+  }
 
   const modelId = input.model ?? config.extractorModel;
   const isGemini = modelId.startsWith("gemini");

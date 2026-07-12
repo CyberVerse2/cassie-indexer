@@ -19,6 +19,11 @@ export const config = {
   get geminiApiKey() {
     return required("GEMINI_API_KEY");
   },
+  get openrouterApiKey() {
+    return required("OPENROUTER_API_KEY");
+  },
+  openrouterBaseUrl: process.env.OPENROUTER_BASE_URL ?? "https://openrouter.ai/api/v1",
+  qwenModel: process.env.QWEN_MODEL ?? "qwen/qwen3.6-flash",
   polygonApiKey: process.env.POLYGON_API_KEY ?? "",
   coingeckoApiKey: process.env.COINGECKO_API_KEY ?? "",
   hyperliquidApiUrl: process.env.HYPERLIQUID_API_URL ?? "https://api.hyperliquid.xyz",
@@ -30,6 +35,6 @@ export const config = {
   collectIntervalMs: Number(process.env.COLLECT_INTERVAL_MINUTES ?? 5) * 60_000,
   processBatchSize: Number(process.env.PROCESS_BATCH_SIZE ?? 25),
   extractorModel: process.env.EXTRACTOR_MODEL ?? "gpt-5.4-mini",
-  extractorVersion: "v1",
-  routerVersion: "v1",
+  extractorVersion: "v2-qwen-gate",
+  routerVersion: "v2-qwen3.6-flash",
 };

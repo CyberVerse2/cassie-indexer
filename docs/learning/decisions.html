@@ -102,6 +102,12 @@
 </div>
 
 <div class="d">
+  <p class="label">Cost</p>
+  <h2>Qwen pre-gates extraction and ranks validated routes</h2>
+  <p><b>Chosen:</b> <code>qwen/qwen3.6-flash</code> now makes the cheapest safe decisions at the edges of extraction. A high-recall multimodal pre-gate rejects only genuine non-opportunities before Gemini research runs; accepted posts retain the grounded extractor unchanged. Routing also moves to Qwen because it is a bounded JSON ranking task over instruments the venue adapters already proved exist. Both calls use OpenRouter's Chat Completions endpoint with reasoning disabled, JSON mode enabled, and Zod validation. <b>Boundary:</b> Qwen does not replace grounded extraction in this change, and a Qwen failure surfaces as a processing failure rather than silently changing model behavior.</p>
+</div>
+
+<div class="d">
   <p class="label">Platform</p>
   <h2>AI SDK upgraded v5 → v7</h2>
   <p>Moved the Vercel AI SDK from v5 to the current <b>v7</b> (<code>ai@7</code>, <code>@ai-sdk/openai@4</code>, <code>@ai-sdk/google@4</code> — the provider-spec-4 line is what v7 expects; a version mismatch here is what made an early <code>@ai-sdk/google@4</code> install fail under v5). Breaking changes migrated: the structured-output option renamed <code>experimental_output</code> → <code>output</code>, and the result accessor <code>result.experimental_output</code> → <code>result.output</code> (<code>Output</code> is still exported, now an alias); <code>generateObject</code> was unchanged. Verified end-to-end (extract + route) live on v7.</p>

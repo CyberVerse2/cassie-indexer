@@ -1,14 +1,12 @@
-import { generateObject } from "ai";
 import { z } from "zod";
-import { config } from "../config";
 import type { ExtractedIdea } from "./extract";
 import type { VenueCandidate } from "../venues/types";
 import * as hl from "../venues/hyperliquid";
 import * as pm from "../venues/polymarket";
 import * as polygon from "../venues/polygon";
 import * as coingecko from "../venues/coingecko";
+import { generateQwenJson } from "../util/qwen";
 import { withRetry } from "../util/retry";
-import { resolveModel } from "../util/model";
 
 export interface DerivationStep {
   text: string;
@@ -47,47 +45,52 @@ export async function routeIdea(idea: ExtractedIdea): Promise<RouteDecision> {
     };
   }
 
-  const { object } = await withRetry(() =>
-    generateObject({
-    model: resolveModel(config.extractorModel),
-    system: `You pick the best tradeable expression for a trade idea from a list of venue-validated candidates. Prefer the most DIRECT expression of what the author actually said; a derived expression must not change the thesis. If every candidate distorts the idea, mark it unrouted. Never invent instruments not in the list.
+  const object = await withRetry(() =>
+    generateQwenJson({
+      system: `You pick the best tradeable expression for a trade idea from a list of venue-validated candidates. Prefer the most DIRECT expression of what the author actually said; a derived expression must not change the thesis. If every candidate distorts the idea, mark it unrouted. Never invent instruments not in the list.
 
-Also produce the "pipeline": the reasoning chain from the author's words to the chosen instrument, as ordered steps. Tag each step's basis: "quote" when it rests on the author's verbatim words, "market" when it rests on a venue/market fact from the candidates, "inference" when it is your own mapping. Keep steps short and concrete.`,
-    prompt: JSON.stringify({
-      idea: {
-        thesis: idea.thesis,
-        direction: idea.direction,
-        subjects: idea.subjects,
-        quotes: idea.quotes,
-        headline_quote: idea.headline_quote,
-        asset_class: idea.asset_class,
-      },
-      candidates: candidates.map((c, i) => ({
-        index: i,
-        venue: c.venue,
-        instrument: c.instrument,
-        ticker: c.displayTicker,
-        direction: c.direction,
-        markPrice: c.markPrice,
-        note: c.liquidityNote,
-        meta: c.marketMeta,
-      })),
-    }),
-    schema: z.object({
-      decision: z.enum(["routed", "unrouted"]),
-      selected_index: z.number().int().min(0).nullable(),
-      trade_type: z
-        .enum(["direct", "derived"])
-        .nullable()
-        .describe("direct = the author literally named this expression; derived = we mapped it."),
-      pipeline: z.object({
-        explanation: z.string(),
-        steps: z.array(
-          z.object({ text: z.string(), basis: z.enum(["quote", "inference", "market"]) }),
-        ),
+Return JSON only with exactly this shape:
+{"decision":"routed"|"unrouted","selected_index":number|null,"trade_type":"direct"|"derived"|null,"pipeline":{"explanation":string,"steps":[{"text":string,"basis":"quote"|"market"|"inference"}]},"unrouted_reason":string|null}
+
+For a routed decision, selected_index must be one of the supplied candidate indexes. For an unrouted decision, selected_index and trade_type must be null and unrouted_reason must explain why every candidate distorts the idea.
+
+The pipeline is the reasoning chain from the author's words to the chosen instrument. Tag each step's basis: "quote" when it rests on the author's verbatim words, "market" when it rests on a venue/market fact from the candidates, and "inference" when it is your own mapping. Keep steps short and concrete.`,
+      content: JSON.stringify({
+        idea: {
+          thesis: idea.thesis,
+          direction: idea.direction,
+          subjects: idea.subjects,
+          quotes: idea.quotes,
+          headline_quote: idea.headline_quote,
+          asset_class: idea.asset_class,
+        },
+        candidates: candidates.map((c, i) => ({
+          index: i,
+          venue: c.venue,
+          instrument: c.instrument,
+          ticker: c.displayTicker,
+          direction: c.direction,
+          markPrice: c.markPrice,
+          note: c.liquidityNote,
+          meta: c.marketMeta,
+        })),
       }),
-      unrouted_reason: z.string().nullable(),
-    }),
+      schema: z.object({
+        decision: z.enum(["routed", "unrouted"]),
+        selected_index: z.number().int().min(0).nullable(),
+        trade_type: z
+          .enum(["direct", "derived"])
+          .nullable()
+          .describe("direct = the author literally named this expression; derived = we mapped it."),
+        pipeline: z.object({
+          explanation: z.string(),
+          steps: z.array(
+            z.object({ text: z.string(), basis: z.enum(["quote", "inference", "market"]) }),
+          ),
+        }),
+        unrouted_reason: z.string().nullable(),
+      }),
+      maxTokens: 1_000,
     }),
   );
 

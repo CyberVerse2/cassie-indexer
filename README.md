@@ -1,28 +1,28 @@
 # cassie-indexer
 
-Indexes trade ideas from ~80 tracked X/Twitter accounts (`data/twitter_sources.json`), hourly, into Postgres.
+Indexes trade ideas from ~80 tracked X/Twitter accounts (`data/twitter_sources.json`), every five minutes, into Postgres.
 
 A **trade idea** is a post where the author expresses a directional view on a specific market subject, such that you could act on it: a nameable **subject**, an assignable **direction**, and a **price consequence** expressible through some instrument. The author's verbatim words are the evidence; our interpretation is stored separately. See `docs/learning/` for the full spec and architecture.
 
 ## Pipeline
 
 ```
-hourly tick
+5-minute tick
 ├── Collector   X API v2 timelines → raw_posts   (cursor per source, idempotent on tweet_id)
 └── Processor   raw_posts → gate+extract → route → price → trade_ideas / routes / route_pricing
 ```
 
 Two stages decoupled by the DB: a collector failure never loses LLM work, a processor failure never re-hits X, and reprocessing with new extraction logic drains from `raw_posts` without refetching.
 
-- **Extraction**: one structured `gpt-5.4-mini` call (Vercel AI SDK + Zod) with OpenAI web search for subject/ticker/context enrichment only; quotes are mechanically verified as substrings of the post.
-- **Routing**: deterministic venue search (Hyperliquid perps incl. builder-dex stock perps, Polymarket, Polygon equities, CoinGecko spot) → one bounded LLM ranking call over *validated* candidates only. If Hyperliquid lists a stock perp (`xyz:*`), it is used before Polygon shares. Unroutable ideas keep a row with `unrouted_reason`.
+- **Gate + extraction**: a high-recall `qwen3.6-flash` pre-gate stops genuine non-opportunities before the grounded Gemini extraction; accepted posts are extracted into a Zod schema and quotes are mechanically verified as substrings of the post.
+- **Routing**: deterministic venue search (Hyperliquid perps incl. builder-dex stock perps, Polymarket, Polygon equities, CoinGecko spot) → one bounded `qwen3.6-flash` ranking call over *validated* candidates only. If Hyperliquid lists a stock perp (`xyz:*`), it is used before Polygon shares. Unroutable ideas keep a row with `unrouted_reason`.
 - **Pricing**: entry at post-time is stored as the baseline; current price is fetched live from the selected venue when the feed is read.
 
 ## Setup
 
 ```bash
 bun install
-cp .env.example .env          # fill in X_BEARER_TOKEN, OPENAI_API_KEY, POLYGON_API_KEY
+cp .env.example .env          # fill in Twitter, Gemini, Qwen, and market-data keys
 createdb cassie_indexer
 bunx drizzle-kit push
 bun run seed                  # load data/twitter_sources.json into sources
@@ -34,7 +34,7 @@ bun run seed                  # load data/twitter_sources.json into sources
 bun run collect      # collector only
 bun run process      # processor only (drains pending raw_posts)
 bun run run-once     # one full sweep
-bun run daemon       # hourly loop
+bun run daemon       # 5-minute loop
 ```
 
 ## Reading the feed
