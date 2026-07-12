@@ -120,13 +120,9 @@ const GATE_SYSTEM = `You are the high-recall first gate for a financial trade-id
 Return JSON only with exactly this shape:
 {"is_idea": boolean, "reject_reason": string | null}
 
-Pass a post when it has BOTH:
-1. A subject the market prices: an asset, company, sector, macro variable, or event.
-2. Something actionable: a move, catalyst, mispricing, setup, level, warning, data point, or open question from which a direction could reasonably be derived.
+Pass when the supplied content contains enough market-relevant information that deeper analysis could reasonably uncover a trade opportunity. You are not deciding what the trade is. Do not require a named ticker, explicit direction, or completed trade thesis. Consider all supplied text, quoted context, and images. When uncertain, pass.
 
-The author does not need to state long/short explicitly. Questions, neutral data relays, warnings, and charts about a named market subject must pass. Read supplied images because the actionable setup may exist only in a chart or screenshot. When uncertain, pass.
-
-Reject only genuine non-opportunities: greetings, personal chatter, jokes with no priced subject, or logistics/announcements with no market subject. Set reject_reason to a short explanation only when rejecting; otherwise null.`;
+Reject only when deeper financial analysis would have no meaningful material to work with. Set reject_reason to a short explanation only when rejecting; otherwise null.`;
 
 export type ExtractedIdea = z.infer<typeof ideaSchema>;
 export interface Reference {
