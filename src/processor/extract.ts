@@ -115,7 +115,7 @@ const gateSchema = z.object({
   reject_reason: z.string().nullable(),
 });
 
-const GATE_SYSTEM = `You decide whether a downstream financial analyst should inspect supplied content.
+export const GATE_SYSTEM = `You decide whether a downstream financial analyst should inspect supplied content.
 
 Return JSON only with exactly this shape:
 {"is_idea": boolean, "reject_reason": string | null}

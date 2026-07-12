@@ -1,13 +1,60 @@
 import { and, eq, sql } from "drizzle-orm";
+import { z } from "zod";
 import { closeDb, db, schema } from "../src/db/client";
-import { gateTradeIdea, type ExtractIdeasInput } from "../src/processor/extract";
+import {
+  GATE_SYSTEM,
+  gateTradeIdea,
+  type ExtractIdeasInput,
+} from "../src/processor/extract";
 import { assembleThread } from "../src/processor/thread";
 
 const sampleSize = Number(process.env.SAMPLE_SIZE ?? 200);
 const balancedPerClass = Number(process.env.BALANCED_PER_CLASS ?? 0);
 const sampleSeed = process.env.SAMPLE_SEED;
 const concurrency = Number(process.env.CONCURRENCY ?? 8);
+const gateProvider = process.env.GATE_PROVIDER ?? "qwen";
+const deepseekModel = process.env.DEEPSEEK_MODEL ?? "deepseek-v4-flash";
 const { rawPosts, tradeIdeas } = schema;
+const startedAt = performance.now();
+
+const gateSchema = z.object({
+  is_idea: z.boolean(),
+  reject_reason: z.string().nullable(),
+});
+
+async function gateWithDeepSeek(text: string) {
+  const apiKey = process.env.DEEPSEEK_API_KEY;
+  if (!apiKey) throw new Error("Missing required env var: DEEPSEEK_API_KEY");
+
+  const response = await fetch("https://api.deepseek.com/chat/completions", {
+    method: "POST",
+    signal: AbortSignal.timeout(30_000),
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: deepseekModel,
+      messages: [
+        { role: "system", content: GATE_SYSTEM },
+        { role: "user", content: text },
+      ],
+      thinking: { type: "disabled" },
+      response_format: { type: "json_object" },
+      temperature: 0,
+      max_tokens: 200,
+    }),
+  });
+  if (!response.ok) {
+    throw new Error(`DeepSeek API ${response.status}: ${(await response.text()).slice(0, 500)}`);
+  }
+  const payload = (await response.json()) as {
+    choices?: Array<{ message?: { content?: string | null } }>;
+  };
+  const content = payload.choices?.[0]?.message?.content;
+  if (!content) throw new Error("DeepSeek returned no content");
+  return gateSchema.parse(JSON.parse(content));
+}
 
 const currentIdeaRows = await db.selectDistinct({ tweetId: tradeIdeas.tweetId }).from(tradeIdeas);
 const currentIdeaTweetIds = new Set(currentIdeaRows.map((row) => row.tweetId));
@@ -73,7 +120,30 @@ async function evaluate(root: (typeof roots)[number]): Promise<Result> {
       imageUrls,
       postedAt: root.postedAt,
     };
-    const gate = await gateTradeIdea(input);
+    const gate =
+      gateProvider === "deepseek"
+        ? await gateWithDeepSeek(
+            [`@${input.authorHandle} posted at ${input.postedAt.toISOString()}:`, input.text]
+              .concat(
+                input.referencedText
+                  ? [
+                      `\n[${
+                        input.isSelfReply || input.isSelfQuote
+                          ? "CONTINUES THEIR OWN EARLIER TWEET"
+                          : input.isReply
+                            ? "REPLYING TO SOMEONE ELSE (only an idea if THIS author states their own side)"
+                            : "QUOTED TWEET"
+                      }]:\n${input.referencedText}`,
+                    ]
+                  : [],
+              )
+              .join("\n"),
+          )
+        : gateProvider === "qwen"
+          ? await gateTradeIdea(input)
+          : (() => {
+              throw new Error(`Unsupported GATE_PROVIDER: ${gateProvider}`);
+            })();
     return {
       tweetId: root.tweetId,
       handle: root.authorHandle,
@@ -119,6 +189,9 @@ console.log(
   JSON.stringify(
     {
       sampleSize: roots.length,
+      gateProvider,
+      model: gateProvider === "deepseek" ? deepseekModel : process.env.QWEN_MODEL ?? "qwen/qwen3.6-flash",
+      elapsedSeconds: (performance.now() - startedAt) / 1_000,
       completed: completed.length,
       errors: errors.length,
       historicalLabels: { positives, negatives },
