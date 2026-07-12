@@ -13,7 +13,11 @@ const balancedPerClass = Number(process.env.BALANCED_PER_CLASS ?? 0);
 const sampleSeed = process.env.SAMPLE_SEED;
 const concurrency = Number(process.env.CONCURRENCY ?? 8);
 const gateProvider = process.env.GATE_PROVIDER ?? "qwen";
+if (!["qwen", "deepseek", "openai"].includes(gateProvider)) {
+  throw new Error(`Unsupported GATE_PROVIDER: ${gateProvider}`);
+}
 const deepseekModel = process.env.DEEPSEEK_MODEL ?? "deepseek-v4-flash";
+const openaiModel = process.env.OPENAI_GATE_MODEL ?? "gpt-5.4-nano";
 const { rawPosts, tradeIdeas } = schema;
 const startedAt = performance.now();
 
@@ -54,6 +58,82 @@ async function gateWithDeepSeek(text: string) {
   const content = payload.choices?.[0]?.message?.content;
   if (!content) throw new Error("DeepSeek returned no content");
   return gateSchema.parse(JSON.parse(content));
+}
+
+async function gateWithOpenAI(text: string, imageUrls: string[]) {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) throw new Error("Missing required env var: OPENAI_API_KEY");
+
+  const response = await fetch("https://api.openai.com/v1/responses", {
+    method: "POST",
+    signal: AbortSignal.timeout(30_000),
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: openaiModel,
+      instructions: GATE_SYSTEM,
+      input: [
+        {
+          role: "user",
+          content: [
+            { type: "input_text", text },
+            ...imageUrls.map((image_url) => ({ type: "input_image", image_url, detail: "low" })),
+          ],
+        },
+      ],
+      reasoning: { effort: "none" },
+      text: {
+        verbosity: "low",
+        format: {
+          type: "json_schema",
+          name: "gate_result",
+          strict: true,
+          schema: {
+            type: "object",
+            properties: {
+              is_idea: { type: "boolean" },
+              reject_reason: { type: ["string", "null"] },
+            },
+            required: ["is_idea", "reject_reason"],
+            additionalProperties: false,
+          },
+        },
+      },
+      max_output_tokens: 200,
+      store: false,
+    }),
+  });
+  if (!response.ok) {
+    throw new Error(`OpenAI API ${response.status}: ${(await response.text()).slice(0, 500)}`);
+  }
+  const payload = (await response.json()) as {
+    output?: Array<{ content?: Array<{ type?: string; text?: string }> }>;
+  };
+  const content = payload.output
+    ?.flatMap((item) => item.content ?? [])
+    .find((item) => item.type === "output_text")?.text;
+  if (!content) throw new Error("OpenAI returned no output text");
+  return gateSchema.parse(JSON.parse(content));
+}
+
+function formatGateText(input: ExtractIdeasInput) {
+  return [`@${input.authorHandle} posted at ${input.postedAt.toISOString()}:`, input.text]
+    .concat(
+      input.referencedText
+        ? [
+            `\n[${
+              input.isSelfReply || input.isSelfQuote
+                ? "CONTINUES THEIR OWN EARLIER TWEET"
+                : input.isReply
+                  ? "REPLYING TO SOMEONE ELSE (only an idea if THIS author states their own side)"
+                  : "QUOTED TWEET"
+            }]:\n${input.referencedText}`,
+          ]
+        : [],
+    )
+    .join("\n");
 }
 
 const currentIdeaRows = await db.selectDistinct({ tweetId: tradeIdeas.tweetId }).from(tradeIdeas);
@@ -120,30 +200,13 @@ async function evaluate(root: (typeof roots)[number]): Promise<Result> {
       imageUrls,
       postedAt: root.postedAt,
     };
+    const gateText = formatGateText(input);
     const gate =
       gateProvider === "deepseek"
-        ? await gateWithDeepSeek(
-            [`@${input.authorHandle} posted at ${input.postedAt.toISOString()}:`, input.text]
-              .concat(
-                input.referencedText
-                  ? [
-                      `\n[${
-                        input.isSelfReply || input.isSelfQuote
-                          ? "CONTINUES THEIR OWN EARLIER TWEET"
-                          : input.isReply
-                            ? "REPLYING TO SOMEONE ELSE (only an idea if THIS author states their own side)"
-                            : "QUOTED TWEET"
-                      }]:\n${input.referencedText}`,
-                    ]
-                  : [],
-              )
-              .join("\n"),
-          )
-        : gateProvider === "qwen"
-          ? await gateTradeIdea(input)
-          : (() => {
-              throw new Error(`Unsupported GATE_PROVIDER: ${gateProvider}`);
-            })();
+        ? await gateWithDeepSeek(gateText)
+        : gateProvider === "openai"
+          ? await gateWithOpenAI(gateText, imageUrls)
+        : await gateTradeIdea(input);
     return {
       tweetId: root.tweetId,
       handle: root.authorHandle,
@@ -190,7 +253,12 @@ console.log(
     {
       sampleSize: roots.length,
       gateProvider,
-      model: gateProvider === "deepseek" ? deepseekModel : process.env.QWEN_MODEL ?? "qwen/qwen3.6-flash",
+      model:
+        gateProvider === "deepseek"
+          ? deepseekModel
+          : gateProvider === "openai"
+            ? openaiModel
+            : process.env.QWEN_MODEL ?? "qwen/qwen3.6-flash",
       elapsedSeconds: (performance.now() - startedAt) / 1_000,
       completed: completed.length,
       errors: errors.length,
