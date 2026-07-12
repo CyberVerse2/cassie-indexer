@@ -5,17 +5,21 @@ import { assembleThread } from "../src/processor/thread";
 
 const sampleSize = Number(process.env.SAMPLE_SIZE ?? 200);
 const balancedPerClass = Number(process.env.BALANCED_PER_CLASS ?? 0);
+const sampleSeed = process.env.SAMPLE_SEED;
 const concurrency = Number(process.env.CONCURRENCY ?? 8);
 const { rawPosts, tradeIdeas } = schema;
 
 const currentIdeaRows = await db.selectDistinct({ tweetId: tradeIdeas.tweetId }).from(tradeIdeas);
 const currentIdeaTweetIds = new Set(currentIdeaRows.map((row) => row.tweetId));
+const sampleOrder = sampleSeed
+  ? sql`md5(${rawPosts.tweetId} || ${sampleSeed})`
+  : sql`random()`;
 
 const eligibleRoots = await db
   .select()
   .from(rawPosts)
   .where(and(eq(rawPosts.status, "processed"), eq(rawPosts.isReply, false)))
-  .orderBy(sql`random()`);
+  .orderBy(sampleOrder);
 
 const roots = balancedPerClass
   ? [
@@ -25,7 +29,7 @@ const roots = balancedPerClass
       ...eligibleRoots
         .filter((root) => !currentIdeaTweetIds.has(root.tweetId))
         .slice(0, balancedPerClass),
-    ].sort(() => Math.random() - 0.5)
+    ].sort((left, right) => left.tweetId.localeCompare(right.tweetId))
   : eligibleRoots.slice(0, sampleSize);
 
 type Result = {
@@ -142,6 +146,15 @@ console.log(
           tweetId: result.tweetId,
           handle: result.handle,
           text: result.text.slice(0, 300),
+        })),
+      historicalNegativeRejectExamples: completed
+        .filter((result) => !result.expectedIdea && !result.gateIdea)
+        .slice(0, 20)
+        .map((result) => ({
+          tweetId: result.tweetId,
+          handle: result.handle,
+          text: result.text.slice(0, 300),
+          rejectReason: result.rejectReason,
         })),
       errorExamples: errors.slice(0, 10).map((result) => ({
         tweetId: result.tweetId,
