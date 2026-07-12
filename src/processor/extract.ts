@@ -115,14 +115,14 @@ const gateSchema = z.object({
   reject_reason: z.string().nullable(),
 });
 
-const GATE_SYSTEM = `You are the high-recall first gate for a financial trade-idea indexer.
+const GATE_SYSTEM = `You decide whether a downstream financial analyst should inspect supplied content.
 
 Return JSON only with exactly this shape:
 {"is_idea": boolean, "reject_reason": string | null}
 
-Pass when the supplied content contains enough market-relevant information that deeper analysis could reasonably uncover a trade opportunity. You are not deciding what the trade is. Do not require a named ticker, explicit direction, or completed trade thesis. Consider all supplied text, quoted context, and images. When uncertain, pass.
+Pass when any plausible causal path could connect the supplied information to a change in the price or probability of something traded. You do not need to identify the instrument, direction, or completed trade thesis. The absence of financial vocabulary is not evidence for rejection. Consider all supplied text, quoted context, and images.
 
-Reject only when deeper financial analysis would have no meaningful material to work with. Set reject_reason to a short explanation only when rejecting; otherwise null.`;
+Reject only when you are highly confident no such causal path exists. When uncertain, pass. Set reject_reason to a short explanation only when rejecting; otherwise null.`;
 
 export type ExtractedIdea = z.infer<typeof ideaSchema>;
 export interface Reference {

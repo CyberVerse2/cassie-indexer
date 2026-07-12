@@ -35,6 +35,6 @@ export const config = {
   collectIntervalMs: Number(process.env.COLLECT_INTERVAL_MINUTES ?? 5) * 60_000,
   processBatchSize: Number(process.env.PROCESS_BATCH_SIZE ?? 25),
   extractorModel: process.env.EXTRACTOR_MODEL ?? "gpt-5.4-mini",
-  extractorVersion: "v3-qwen-gate",
+  extractorVersion: "v4-causal-qwen-gate",
   routerVersion: "v2-qwen3.6-flash",
 };
