@@ -137,6 +137,19 @@ export type ExtractionResult = z.infer<typeof extractionSchema> & {
   references: Reference[];
 };
 
+export interface ExtractIdeasInput {
+  authorHandle: string;
+  text: string;
+  referencedText?: string | null;
+  isReply?: boolean;
+  isSelfReply?: boolean;
+  isSelfQuote?: boolean;
+  isQuote?: boolean;
+  imageUrls?: string[];
+  postedAt: Date;
+  model?: string;
+}
+
 // The north star. Every extraction decision is measured against this.
 const SYSTEM = `You turn social posts from finance/trading accounts into actionable trade OPPORTUNITIES.
 
@@ -168,18 +181,7 @@ CONTEXT — the post may include [CONTINUES THEIR OWN EARLIER TWEET] (the author
 
 REJECT (is_idea = false) ONLY genuine non-opportunities: gm/gn, pure personal chatter, jokes with no subject, logistics/announcements with no market subject. A question about a named stock, a data relay on a named asset, or a warning about a named ticker is NOT a reject — it is an opportunity to analyze. Rejecting a real subject because the author did not state a side is the main mistake to avoid.`;
 
-export async function extractIdeas(input: {
-  authorHandle: string;
-  text: string;
-  referencedText?: string | null;
-  isReply?: boolean;
-  isSelfReply?: boolean;
-  isSelfQuote?: boolean; // author quoting their OWN earlier tweet
-  isQuote?: boolean;
-  imageUrls?: string[]; // chart/screenshot media on the post — fed to the model
-  postedAt: Date;
-  model?: string; // override for A/B testing; defaults to config.extractorModel
-}): Promise<ExtractionResult> {
+function prepareInput(input: ExtractIdeasInput) {
   const parts = [`@${input.authorHandle} posted at ${input.postedAt.toISOString()}:`, input.text];
   if (input.referencedText) {
     // Label the context by relationship so the model attributes correctly. A
@@ -211,6 +213,11 @@ export async function extractIdeas(input: {
         ]
       : undefined;
 
+  return { text, images, messages };
+}
+
+export async function gateTradeIdea(input: ExtractIdeasInput) {
+  const { text, images } = prepareInput(input);
   const gateContent: QwenContent =
     images.length > 0
       ? [
@@ -226,6 +233,12 @@ export async function extractIdeas(input: {
       maxTokens: 200,
     }),
   );
+  return gate;
+}
+
+export async function extractIdeas(input: ExtractIdeasInput): Promise<ExtractionResult> {
+  const { text, images, messages } = prepareInput(input);
+  const gate = await gateTradeIdea(input);
   if (!gate.is_idea) {
     return {
       is_idea: false,

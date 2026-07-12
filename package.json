@@ -13,6 +13,7 @@
     "run-once": "bun run src/cli.ts run",
     "daemon": "bun run src/cli.ts daemon",
     "backfill:horizons": "bun run scripts/normalize-horizons.ts",
+    "evaluate:qwen-gate": "bun run scripts/evaluate-qwen-gate.ts",
     "demo": "bun run scripts/seed-demo.ts"
   },
   "dependencies": {
