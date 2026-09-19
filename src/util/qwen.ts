@@ -134,7 +134,7 @@ async function openRouterChat(options: {
     body: JSON.stringify({
       model: options.model ?? config.qwenModel,
       messages: [
-        { role: "system", content: options.system },
+        { role: "system", content: options.json ? `${options.system}\n\nReturn JSON only.` : options.system },
         { role: "user", content: await withInlineImages(options.content) },
       ],
       reasoning: { enabled: false },

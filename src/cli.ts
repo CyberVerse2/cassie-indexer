@@ -44,6 +44,20 @@ async function main() {
       console.log(`[process] ${r.posts} posts → ${r.ideas} ideas (${r.routed} routed, ${r.failed} failed)`);
       break;
     }
+    case "drain": {
+      const total = { posts: 0, ideas: 0, routed: 0, failed: 0 };
+      for (let i = 0; i < 80; i++) {
+        const p = await processPending();
+        total.posts += p.posts;
+        total.ideas += p.ideas;
+        total.routed += p.routed;
+        total.failed += p.failed;
+        console.log(`[drain] batch ${i + 1}: ${p.posts} posts → ${p.ideas} ideas (${p.routed} routed, ${p.failed} failed) total=${total.posts}`);
+        if (p.posts === 0) break;
+      }
+      console.log(`[drain] done: ${total.posts} posts → ${total.ideas} ideas (${total.routed} routed, ${total.failed} failed)`);
+      break;
+    }
     case "run": {
       await runOnce();
       break;
@@ -64,7 +78,7 @@ async function main() {
       }
     }
     default:
-      console.error(`Unknown command: ${cmd}. Use collect | process | run | daemon`);
+      console.error(`Unknown command: ${cmd}. Use collect | process | drain | run | daemon`);
       process.exitCode = 1;
   }
 
