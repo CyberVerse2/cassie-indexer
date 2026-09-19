@@ -1,10 +1,8 @@
 import { z } from "zod";
+import { search } from "../venues/definitive";
+import { preparePlan } from "./plan";
 import type { ExtractedIdea } from "./extract";
 import type { VenueCandidate } from "../venues/types";
-import * as hl from "../venues/hyperliquid";
-import * as pm from "../venues/polymarket";
-import * as polygon from "../venues/polygon";
-import * as coingecko from "../venues/coingecko";
 import { generateQwenJson } from "../util/qwen";
 import { withRetry } from "../util/retry";
 
@@ -34,7 +32,7 @@ export interface RouteDecision {
  * 2. One LLM call ranks only those real candidates — it can pick or declare
  *    unrouted, but it cannot invent instruments.
  */
-export async function routeIdea(idea: ExtractedIdea): Promise<RouteDecision> {
+export async function routeIdea(idea: ExtractedIdea, postedAt = new Date()): Promise<RouteDecision> {
   const candidates = await gatherCandidates(idea);
 
   if (candidates.length === 0) {
@@ -108,6 +106,9 @@ The pipeline is the reasoning chain from the author's words to the chosen instru
     };
   }
 
+  let plan;
+  try{plan=await preparePlan(idea,selected.marketMeta!.definitive,postedAt);}catch(error){return {status:"unrouted",unroutedReason:error instanceof Error?error.message:"Plan unavailable",alternatives:toAlternatives(candidates)};}
+  selected.marketMeta={...selected.marketMeta,executionPlan:plan};
   return {
     status: "routed",
     selected,
@@ -118,53 +119,11 @@ The pipeline is the reasoning chain from the author's words to the chosen instru
 }
 
 async function gatherCandidates(idea: ExtractedIdea): Promise<VenueCandidate[]> {
-  const out: VenueCandidate[] = [];
-  const longShort = idea.direction === "long" || idea.direction === "short";
-  const tickers = [...new Set(idea.candidate_tickers.map((t) => t.replace(/^\$/, "")))].slice(0, 4);
-
-  if (longShort) {
-    const dir = idea.direction as "long" | "short";
-    for (const ticker of tickers) {
-      try {
-        if (idea.asset_class === "crypto") {
-          // Perp first (deepest, matches paste.trade), spot as tail.
-          const perp = await hl.searchPerp(ticker, dir);
-          if (perp) out.push(perp);
-          else {
-            const spot = await coingecko.resolveCoin(ticker, dir);
-            if (spot) out.push(spot);
-          }
-        } else {
-          // Equity/ETF/commodity/fx — try HL synthetic stock perps too (they
-          // exist on builder dexes). If a perp exists, use it as the direct
-          // expression; Polygon shares are only the fallback for tickers HL
-          // does not list.
-          const perp = await hl.searchPerp(ticker, dir);
-          if (perp) {
-            out.push(perp);
-          } else {
-            const shares = await polygon.validateTicker(ticker, dir);
-            if (shares) out.push(shares);
-          }
-        }
-      } catch (err) {
-        console.warn(`[route] candidate ${ticker} failed: ${err instanceof Error ? err.message : err}`);
-      }
-    }
-  }
-
-  // Event/macro ideas (or anything yes/no) get a Polymarket sweep on the thesis.
-  if (idea.direction === "yes" || idea.direction === "no" || idea.asset_class === "event" || idea.asset_class === "macro") {
-    try {
-      const side = idea.direction === "no" ? "no" : "yes";
-      const query = idea.subjects[0]?.label ?? idea.thesis;
-      out.push(...(await pm.searchMarkets(query, side, 4)));
-    } catch (err) {
-      console.warn(`[route] polymarket sweep failed: ${err instanceof Error ? err.message : err}`);
-    }
-  }
-
-  return out;
+  if(idea.direction!=='long'||['event','fx'].includes(idea.asset_class))return [];
+  const tickers=[...new Set(idea.candidate_tickers.map(t=>t.replace(/^\$/, '').toUpperCase()))].slice(0,4);
+  const candidates:VenueCandidate[]=[];
+  for(const ticker of tickers)candidates.push(...await search(ticker,idea.asset_class==='crypto'?'spot':'shares'));
+  return candidates;
 }
 
 function toAlternatives(candidates: VenueCandidate[]) {

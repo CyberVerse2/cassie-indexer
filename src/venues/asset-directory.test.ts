@@ -104,4 +104,19 @@ describe('discoverAssets', () => {
     const found = await discoverAssets('PLTR', 'shares', flash, undefined, stocks);
     expect(found.map((row: { chain: string; address: string }) => row.chain + ':' + row.address)).toEqual(['ink:' + ETH]);
   });
+
+  test('keeps listed token markets and ranks them by liquidity', async () => {
+    const wbtc = '0x4444444444444444444444444444444444444444';
+    const junk = '0x5555555555555555555555555555555555555555';
+    const flash = async () => ({
+      assets: [
+        hit(junk, { symbol: 'BTC', price: 9, liquidity: 10 }),
+        hit(wbtc, { symbol: 'WBTC', price: 81000, liquidity: 9_000_000 }),
+      ],
+    });
+    const found = await discoverAssets('BTC', 'spot', flash);
+    expect(found.map((row: { symbol: string }) => row.symbol)).toEqual(['WBTC', 'BTC']);
+    expect(found[0].ticker).toBe('BTC');
+    expect(found[0].address).toBe(wbtc);
+  });
 });

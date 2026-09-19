@@ -30,7 +30,6 @@ export const config = {
   jevModel: process.env.JEV_MODEL ?? "typesafe/jev-1.13",
   jevPassThreshold: Number(process.env.JEV_PASS_THRESHOLD ?? 0.3),
   polygonApiKey: process.env.POLYGON_API_KEY ?? "",
-  coingeckoApiKey: process.env.COINGECKO_API_KEY ?? "",
   hyperliquidApiUrl: process.env.HYPERLIQUID_API_URL ?? "https://api.hyperliquid.xyz",
   polymarketGammaUrl:
     process.env.POLYMARKET_GAMMA_API_URL ?? "https://gamma-api.polymarket.com",

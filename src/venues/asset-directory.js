@@ -44,13 +44,6 @@ export async function stockDirectory(){return cached('stocks',async()=>{
  }
  throw Error('Issuer catalogue exceeded its pagination limit.');
 });}
-async function cryptoDirectory(chain){return cached('crypto:'+chain,async()=>{
- const names={ethereum:'ethereum',base:'base',arbitrum:'arbitrum-one',optimism:'optimistic-ethereum',polygon:'polygon-pos',bsc:'binance-smart-chain',avalanche:'avalanche',hyperevm:'hyperliquid',ink:'ink',monad:'monad'};
- if(!names[chain])return new Map();
- const data=await json('https://tokens.coingecko.com/'+names[chain]+'/all.json');
- if(!Array.isArray(data.tokens))throw Error('Invalid token identity list.');
- return new Map(data.tokens.filter(t=>t.chainId===EVM_CHAINS[chain]).map(t=>[key(chain,t.address),{ticker:t.symbol,kind:'spot',source:'https://tokens.coingecko.com/'+names[chain]+'/all.json'}]));
-});}
 export function identityMatch(asset,identity,ticker){
  return Boolean(identity&&asset.chain in EVM_CHAINS&&/^0x[a-f0-9]{40}$/i.test(asset.address)&&Number.isInteger(asset.decimals)&&asset.decimals>=0&&asset.decimals<=36&&identity.ticker.toUpperCase()===ticker.toUpperCase());
 }
@@ -70,10 +63,7 @@ export async function discoverAssets(ticker,kind,flash,chain,directory){
  const take=(asset,identity)=>{const row=verified(asset,identity,ticker);if(!row)return;const k=key(row.chain,row.address);if(seen.has(k))return;seen.add(k);results.push(row);};
  const response=await flash('/search?query='+encodeURIComponent(ticker)+'&limit=25'+(chain?'&chain='+encodeURIComponent(chain):''));
  for(const asset of (response.assets??[]).filter(listed)){
-  let identity;
-  if(stocks)identity=stocks.get(key(asset.chain,asset.address));
-  else{try{identity=(await cryptoDirectory(asset.chain)).get(key(asset.chain,asset.address));}catch{continue;}}
-  take(asset,identity);
+  take(asset,stocks?stocks.get(key(asset.chain,asset.address)):{ticker,kind:'spot',source:'definitive'});
  }
  if(stocks){
   for(const identity of knownShares(ticker,stocks)){

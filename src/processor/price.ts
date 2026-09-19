@@ -2,7 +2,6 @@ import type { VenueCandidate } from "../venues/types";
 import * as hl from "../venues/hyperliquid";
 import * as pm from "../venues/polymarket";
 import * as polygon from "../venues/polygon";
-import * as coingecko from "../venues/coingecko";
 
 export interface PriceResult {
   entryPrice: number | null;
@@ -19,6 +18,13 @@ export async function priceRoute(selected: VenueCandidate, postedAt: Date): Prom
   let currentPrice: number | null = null;
 
   switch (selected.venue) {
+    case "definitive": {
+      currentPrice=selected.markPrice??null;
+      const entry = await polygon.priceAt(polygon.historyTicker(selected.ticker, selected.instrument), postedAt);
+      entryPrice = entry?.price ?? null;
+      entryNote = entry?.note ?? "Historical post-time price unavailable from Polygon; current quote is not a historical return.";
+      break;
+    }
     case "hyperliquid": {
       entryPrice = await hl.priceAt(selected.ticker, postedAt);
       entryNote = entryPrice !== null ? "HL candle close at post time" : null;
@@ -35,12 +41,6 @@ export async function priceRoute(selected: VenueCandidate, postedAt: Date): Prom
       currentPrice = await polygon.currentPrice(selected.ticker);
       break;
     }
-    case "coingecko": {
-      entryPrice = await coingecko.priceAt(selected.ticker, postedAt);
-      entryNote = entryPrice !== null ? "CoinGecko nearest chart point" : null;
-      currentPrice = await coingecko.currentPrice(selected.ticker);
-      break;
-    }
     case "polymarket": {
       const side = selected.direction === "no" ? "no" : "yes";
       currentPrice = await pm.currentPrice(selected.ticker, side);
@@ -55,6 +55,10 @@ export async function priceRoute(selected: VenueCandidate, postedAt: Date): Prom
         entryNote = "PM price at index time (no historical odds)";
       }
       break;
+    }
+    default: {
+      const _never: never = selected.venue;
+      throw new Error(`unknown venue ${_never}`);
     }
   }
 

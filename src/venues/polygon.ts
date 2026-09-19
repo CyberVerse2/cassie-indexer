@@ -60,6 +60,11 @@ export async function validateTicker(
   };
 }
 
+export function historyTicker(ticker: string, instrument: string): string {
+  const symbol = ticker.replace(/^\$/, "").replace(/-USD$/i, "").toUpperCase();
+  return instrument === "spot" ? `X:${symbol}USD` : symbol;
+}
+
 /** Latest available minute-bar close. Plan recency may be delayed by Polygon tier. */
 export async function currentPrice(ticker: string): Promise<number | null> {
   const symbol = ticker.toUpperCase();
