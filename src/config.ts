@@ -38,7 +38,7 @@ export const config = {
   // 5-min polling costs the same as hourly but is far fresher.
   collectIntervalMs: Number(process.env.COLLECT_INTERVAL_MINUTES ?? 5) * 60_000,
   processBatchSize: Number(process.env.PROCESS_BATCH_SIZE ?? 25),
-  extractorModel: process.env.EXTRACTOR_MODEL ?? "qwen/qwen3.8-flash",
-  extractorVersion: "v7-qwen3.8-flash",
+  extractorModel: process.env.EXTRACTOR_MODEL ?? "gpt-5.6-luna",
+  extractorVersion: "v8-gpt-5.6-luna",
   routerVersion: "v3-qwen3.8-flash",
 };
