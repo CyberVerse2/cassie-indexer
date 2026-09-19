@@ -162,6 +162,36 @@ const extractionSchema = z.object({
   ideas: z.array(ideaSchema).max(5),
 });
 
+// OpenAI structured output rejects nullable enums (`anyOf` + null). Use plain
+// required strings and a fourth conviction value, then map empties to null.
+const openAiIdeaSchema = ideaSchema.extend({
+  target: z.string().describe("Author's stated target, or an empty string when they named none."),
+  invalidation: z.string().describe("Author's stated invalidation, or an empty string when they named none."),
+  conviction: z.enum(["low", "medium", "high", "unspecified"]),
+});
+const openAiExtractionSchema = z.object({
+  is_idea: z.boolean(),
+  reject_reason: z.string().describe("Exclusion reason when is_idea is false, otherwise an empty string."),
+  ideas: z.array(openAiIdeaSchema).max(5),
+});
+
+export function normalizeOpenAiExtraction(
+  raw: z.infer<typeof openAiExtractionSchema>,
+): z.infer<typeof extractionSchema> {
+  return extractionSchema.parse(
+    coerceExtraction({
+      ...raw,
+      reject_reason: raw.reject_reason.trim() ? raw.reject_reason : null,
+      ideas: raw.ideas.map((idea) => ({
+        ...idea,
+        target: idea.target.trim() ? idea.target : null,
+        invalidation: idea.invalidation.trim() ? idea.invalidation : null,
+        conviction: idea.conviction === "unspecified" ? null : idea.conviction,
+      })),
+    }),
+  );
+}
+
 const strategyComponentJson = {
   type: "object",
   properties: {
@@ -206,9 +236,7 @@ const extractionJsonSchema = {
           },
           target: { type: ["string", "null"] },
           invalidation: { type: ["string", "null"] },
-          conviction: {
-            anyOf: [{ type: "string", enum: ["low", "medium", "high"] }, { type: "null" }],
-          },
+          conviction: { type: ["string", "null"], enum: ["low", "medium", "high"] },
           strategy: {
             type: "object",
             properties: {
@@ -449,6 +477,7 @@ export async function extractIdeas(input: ExtractIdeasInput): Promise<Extraction
   const isDeepSeek = modelId.startsWith("deepseek");
   const isGemini = modelId.startsWith("gemini");
   const schemaOutput = Output.object({ schema: extractionSchema });
+  const openAiOutput = Output.object({ schema: openAiExtractionSchema });
 
   let extracted: z.infer<typeof extractionSchema>;
   let sources: Array<{ sourceType?: string; url?: string; title?: string | null }> = [];
@@ -537,11 +566,11 @@ export async function extractIdeas(input: ExtractIdeasInput): Promise<Extraction
         tools: { web_search: openai.tools.webSearch({ searchContextSize: "low" }) },
         system: SYSTEM,
         ...(messages ? { messages } : { prompt: text }),
-        output: schemaOutput,
+        output: openAiOutput,
         providerOptions: { openai: { maxToolCalls: 6, strictJsonSchema: true } },
       }),
     );
-    extracted = r.output;
+    extracted = normalizeOpenAiExtraction(r.output);
     sources = r.sources ?? [];
   }
 
