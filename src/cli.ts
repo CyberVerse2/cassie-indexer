@@ -4,19 +4,15 @@ import { closeDb } from "./db/client";
 import { config } from "./config";
 
 async function runOnce() {
+  const started = new Date();
   const collected = await collectAll();
   console.log(
     `[collect] done: ${collected.fetched} posts from ${collected.sources} sources (${collected.errors} errors)`,
   );
-  // Drain until a batch comes back short — empties the backlog within a run
-  // while keeping each DB drain bounded.
-  for (;;) {
-    const p = await processPending();
-    console.log(
-      `[process] done: ${p.posts} posts → ${p.ideas} ideas (${p.routed} routed, ${p.failed} failed)`,
-    );
-    if (p.posts < config.processBatchSize) break;
-  }
+  const p = await processPending({ fetched: started });
+  console.log(
+    `[process] done: ${p.posts} posts → ${p.ideas} ideas (${p.routed} routed, ${p.failed} failed)`,
+  );
 }
 
 async function main() {

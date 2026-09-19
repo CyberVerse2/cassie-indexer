@@ -18,11 +18,11 @@ const MAX_PAGES_PER_BATCH = 10;
  * returns ONLY tweets newer than what we already have — so cost scales with new
  * tweets, not poll frequency. Lands them in raw_posts (idempotent on tweet_id).
  */
-export async function collectAll(): Promise<{ fetched: number; sources: number; errors: number }> {
+export async function collectAll(windowMinutes = COLLECTION_WINDOW_MINUTES): Promise<{ fetched: number; sources: number; errors: number }> {
   const tracked = await db.select().from(sources).where(eq(sources.tracked, true));
   const byHandle = new Map(tracked.map((s) => [s.handle.toLowerCase(), s]));
 
-  const since = new Date(Date.now() - COLLECTION_WINDOW_MINUTES * 60_000);
+  const since = new Date(Date.now() - windowMinutes * 60_000);
 
   let fetched = 0;
   let errors = 0;

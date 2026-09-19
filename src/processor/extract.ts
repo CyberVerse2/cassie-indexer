@@ -3,7 +3,8 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { z } from "zod";
 import { config } from "../config";
-import { generateQwenJson, type QwenContent } from "../util/qwen";
+import { generateDeepSeekJson } from "../util/deepseek";
+import { jevBoolean } from "../util/jev";
 import { withRetry } from "../util/retry";
 
 const openai = createOpenAI({ apiKey: config.openaiApiKey });
@@ -24,6 +25,56 @@ function strategyComponent(desc: string) {
     text: z.string().describe(`${desc} Keep it under ~15 words.`),
     basis: z.enum(["author", "suggested"]),
   });
+}
+
+function asStrategyComponent(value: unknown) {
+  return typeof value === "string" ? { text: value, basis: "suggested" } : value;
+}
+
+const SUBJECT_KIND: Record<string, "asset"> = {
+  commodity: "asset",
+  crypto: "asset",
+  equity: "asset",
+  etf: "asset",
+  fx: "asset",
+  token: "asset",
+  stock: "asset",
+};
+
+function coerceStrategy(strategy: unknown) {
+  if (!strategy || typeof strategy !== "object") return strategy;
+  const s = strategy as Record<string, unknown>;
+  return {
+    ...s,
+    exit: asStrategyComponent(s.exit),
+    hold: asStrategyComponent(s.hold),
+    stop_loss: asStrategyComponent(s.stop_loss),
+    take_profit: asStrategyComponent(s.take_profit),
+  };
+}
+
+function coerceSubjects(subjects: unknown) {
+  if (!Array.isArray(subjects)) return subjects;
+  return subjects.map((subject) => {
+    if (!subject || typeof subject !== "object") return subject;
+    const item = subject as Record<string, unknown>;
+    const kind = typeof item.kind === "string" ? SUBJECT_KIND[item.kind.toLowerCase()] ?? item.kind : item.kind;
+    return { ...item, kind };
+  });
+}
+
+export function coerceExtraction(raw: unknown): unknown {
+  if (!raw || typeof raw !== "object") return raw;
+  const rec = raw as Record<string, unknown>;
+  if (!Array.isArray(rec.ideas)) return raw;
+  return {
+    ...rec,
+    ideas: rec.ideas.map((idea) => {
+      if (!idea || typeof idea !== "object") return idea;
+      const row = idea as Record<string, unknown>;
+      return { ...row, strategy: coerceStrategy(row.strategy), subjects: coerceSubjects(row.subjects) };
+    }),
+  };
 }
 
 export const ideaSchema = z.object({
@@ -110,10 +161,97 @@ const extractionSchema = z.object({
   ideas: z.array(ideaSchema).max(5),
 });
 
-const gateSchema = z.object({
-  is_idea: z.boolean(),
-  reject_reason: z.string().nullable(),
-});
+const strategyComponentJson = {
+  type: "object",
+  properties: {
+    text: { type: "string" },
+    basis: { type: "string", enum: ["author", "suggested"] },
+  },
+  required: ["text", "basis"],
+  additionalProperties: false,
+} as const;
+
+const extractionJsonSchema = {
+  type: "object",
+  properties: {
+    is_idea: { type: "boolean" },
+    reject_reason: { type: ["string", "null"] },
+    ideas: {
+      type: "array",
+      maxItems: 5,
+      items: {
+        type: "object",
+        properties: {
+          thesis: { type: "string" },
+          stated_by_author: { type: "boolean" },
+          reasoning: { type: "array", items: { type: "string" }, minItems: 2, maxItems: 4 },
+          subjects: {
+            type: "array",
+            minItems: 1,
+            items: {
+              type: "object",
+              properties: {
+                label: { type: "string" },
+                kind: { type: "string", enum: ["asset", "company", "sector", "macro", "event"] },
+              },
+              required: ["label", "kind"],
+              additionalProperties: false,
+            },
+          },
+          direction: { type: "string", enum: ["long", "short", "yes", "no"] },
+          horizon: {
+            type: "string",
+            enum: ["immediate", "short-term", "medium-term", "long-term", "unspecified"],
+          },
+          target: { type: ["string", "null"] },
+          invalidation: { type: ["string", "null"] },
+          conviction: {
+            anyOf: [{ type: "string", enum: ["low", "medium", "high"] }, { type: "null" }],
+          },
+          strategy: {
+            type: "object",
+            properties: {
+              exit: strategyComponentJson,
+              hold: strategyComponentJson,
+              stop_loss: strategyComponentJson,
+              take_profit: strategyComponentJson,
+            },
+            required: ["exit", "hold", "stop_loss", "take_profit"],
+            additionalProperties: false,
+          },
+          quotes: { type: "array", items: { type: "string" }, minItems: 1 },
+          headline_quote: { type: "string" },
+          asset_class: {
+            type: "string",
+            enum: ["crypto", "equity", "etf", "commodity", "fx", "macro", "event"],
+          },
+          context: { type: "string" },
+          candidate_tickers: { type: "array", items: { type: "string" } },
+        },
+        required: [
+          "thesis",
+          "stated_by_author",
+          "reasoning",
+          "subjects",
+          "direction",
+          "horizon",
+          "target",
+          "invalidation",
+          "conviction",
+          "strategy",
+          "quotes",
+          "headline_quote",
+          "asset_class",
+          "context",
+          "candidate_tickers",
+        ],
+        additionalProperties: false,
+      },
+    },
+  },
+  required: ["is_idea", "reject_reason", "ideas"],
+  additionalProperties: false,
+} as const;
 
 export const GATE_SYSTEM = `You decide whether a downstream financial analyst should inspect supplied content.
 
@@ -122,7 +260,9 @@ Return JSON only with exactly this shape:
 
 Pass when any plausible causal path could connect the supplied information to a change in the price or probability of something traded. You do not need to identify the instrument, direction, or completed trade thesis. The absence of financial vocabulary is not evidence for rejection. Consider all supplied text, quoted context, and images.
 
-Reject only when you are highly confident no such causal path exists. When uncertain, pass. Set reject_reason to a short explanation only when rejecting; otherwise null.`;
+Reject only when you are highly confident no such causal path exists. When uncertain, pass. Set reject_reason to a short explanation only when rejecting; otherwise null.
+
+When a named subject, event, or claim is present, you may use web search to check whether a plausible price path exists. Do not search obvious non-opportunities such as greetings, jokes, or personal chatter.`;
 
 export type ExtractedIdea = z.infer<typeof ideaSchema>;
 export interface Reference {
@@ -212,24 +352,35 @@ function prepareInput(input: ExtractIdeasInput) {
   return { text, images, messages };
 }
 
-export async function gateTradeIdea(input: ExtractIdeasInput) {
+export type GateResult = {
+  is_idea: boolean;
+  reject_reason: string | null;
+  noul: number;
+};
+
+export async function gateTradeIdea(input: ExtractIdeasInput): Promise<GateResult> {
   const { text, images } = prepareInput(input);
-  const gateContent: QwenContent =
+  const state =
     images.length > 0
-      ? [
-          { type: "text", text },
-          ...images.map((url) => ({ type: "image_url" as const, image_url: { url } })),
-        ]
+      ? `${text}\n\n[NOTE: ${images.length} image(s) were attached. This model cannot see them. Do not reject only because the text is short if a chart or screenshot may carry the market subject.]`
       : text;
-  const gate = await withRetry(() =>
-    generateQwenJson({
-      system: GATE_SYSTEM,
-      content: gateContent,
-      schema: gateSchema,
-      maxTokens: 200,
+  const noul = await withRetry(() =>
+    jevBoolean({
+      state,
+      instructions:
+        "Should a downstream financial analyst inspect this post for a tradeable opportunity? Pass when any plausible causal path could connect the supplied information to a change in the price or probability of something traded. You do not need an instrument, direction, or completed thesis. Absence of financial vocabulary is not evidence for rejection. When uncertain, pass.",
+      trueCriteria:
+        "The post names or implies a market subject and something that could move its price or probability. Includes data relays, warnings, questions, charts, and derived opportunities.",
+      falseCriteria:
+        "Genuine non-opportunity: greeting, personal chatter, joke with no subject, or logistics/announcement with no traded subject.",
     }),
   );
-  return gate;
+  const isIdea = noul >= config.jevPassThreshold;
+  return {
+    is_idea: isIdea,
+    reject_reason: isIdea ? null : `jev noul ${noul.toFixed(3)} below ${config.jevPassThreshold}`,
+    noul,
+  };
 }
 
 export async function extractIdeas(input: ExtractIdeasInput): Promise<ExtractionResult> {
@@ -238,20 +389,39 @@ export async function extractIdeas(input: ExtractIdeasInput): Promise<Extraction
   if (!gate.is_idea) {
     return {
       is_idea: false,
-      reject_reason: gate.reject_reason ?? "rejected by Qwen pre-gate",
+      reject_reason: gate.reject_reason ?? "rejected by Jev pre-gate",
       ideas: [],
       references: [],
     };
   }
 
   const modelId = input.model ?? config.extractorModel;
+  const isDeepSeek = modelId.startsWith("deepseek");
   const isGemini = modelId.startsWith("gemini");
   const schemaOutput = Output.object({ schema: extractionSchema });
 
   let extracted: z.infer<typeof extractionSchema>;
   let sources: Array<{ sourceType?: string; url?: string; title?: string | null }> = [];
 
-  if (isGemini) {
+  if (isDeepSeek) {
+    const result = await withRetry(() =>
+      generateDeepSeekJson({
+        model: modelId,
+        system: SYSTEM,
+        text,
+        imageUrls: images,
+        parse: (raw) => extractionSchema.parse(coerceExtraction(raw)),
+        jsonSchema: extractionJsonSchema as Record<string, unknown>,
+        schemaName: "extraction_result",
+      }),
+    );
+    extracted = result.value;
+    sources = result.references.map((reference) => ({
+      sourceType: "url",
+      url: reference.url,
+      title: reference.title,
+    }));
+  } else if (isGemini) {
     // Gemini silently DROPS Google Search grounding when structured output is on
     // (AI SDK gap: vercel/ai#11599). So do it in two passes: (1) ground with
     // real search → brief + sources, (2) structure the idea using post + brief.

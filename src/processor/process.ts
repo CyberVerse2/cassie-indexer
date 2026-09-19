@@ -42,17 +42,19 @@ async function resolveReferencedText(root: Post): Promise<string | null> {
  * single unit (anchored to the thread root), so a thesis spread across several
  * tweets yields one idea instead of duplicates + orphan fragments.
  */
-export async function processPending(): Promise<{
+export async function processPending(opts?: { fetched?: Date; posted?: Date }): Promise<{
   posts: number;
   ideas: number;
   routed: number;
   failed: number;
 }> {
-  const cutoff = new Date(Date.now() - 5 * 60_000);
+  const filters = [eq(rawPosts.status, "pending")];
+  if (opts?.fetched) filters.push(gte(rawPosts.fetchedAt, opts.fetched));
+  if (opts?.posted) filters.push(gte(rawPosts.postedAt, opts.posted));
   const pending = await db
     .select()
     .from(rawPosts)
-    .where(and(eq(rawPosts.status, "pending"), gte(rawPosts.postedAt, cutoff)))
+    .where(and(...filters))
     .orderBy(asc(rawPosts.postedAt))
     .limit(config.processBatchSize);
 
@@ -205,7 +207,7 @@ async function processThread(thread: Post[]): Promise<{ ideas: number; routed: n
       .returning();
 
     // ② Route — bounded ranking over venue-validated candidates.
-    const decision = await routeIdea(idea);
+    const decision = await routeIdea(idea,root.postedAt);
     const [routeRow] = await db
       .insert(routes)
       .values({
@@ -220,7 +222,7 @@ async function processThread(thread: Post[]): Promise<{ ideas: number; routed: n
         pipeline: decision.pipeline,
         alternatives: decision.alternatives,
         marketMeta: decision.selected?.marketMeta,
-        routerVersion: config.routerVersion,
+        routerVersion: "v3-definitive-evm",
       })
       .returning();
 
