@@ -1,8 +1,8 @@
 # cassie-indexer
 
-Indexes trade ideas from ~80 tracked X/Twitter accounts (`data/twitter_sources.json`), every five minutes, into Postgres.
+Indexes trade ideas from ~90 tracked X/Twitter accounts (`data/twitter_sources.json`), every five minutes, into Postgres.
 
-A **trade idea** is a post where the author expresses a directional view on a specific market subject, such that you could act on it: a nameable **subject**, an assignable **direction**, and a **price consequence** expressible through some instrument. The author's verbatim words are the evidence; our interpretation is stored separately. See `docs/learning/` for the full spec and architecture.
+A **trade idea** is a post where the author expresses a directional view on a specific market subject, such that you could act on it: a nameable **subject**, an assignable **direction**, and a **price consequence** expressible through some instrument. The author's verbatim words are the evidence; our interpretation is stored separately.
 
 ## Pipeline
 
@@ -14,15 +14,15 @@ A **trade idea** is a post where the author expresses a directional view on a sp
 
 Two stages decoupled by the DB: a collector failure never loses LLM work, a processor failure never re-hits X, and reprocessing with new extraction logic drains from `raw_posts` without refetching.
 
-- **Gate + extraction**: a high-recall `qwen3.6-flash` pre-gate stops genuine non-opportunities before the grounded Gemini extraction; accepted posts are extracted into a Zod schema and quotes are mechanically verified as substrings of the post.
-- **Routing**: deterministic venue search (Hyperliquid perps incl. builder-dex stock perps, Polymarket, Polygon equities, CoinGecko spot) → one bounded `qwen3.6-flash` ranking call over *validated* candidates only. If Hyperliquid lists a stock perp (`xyz:*`), it is used before Polygon shares. Unroutable ideas keep a row with `unrouted_reason`.
+- **Gate + extraction**: a high-recall Jev pre-gate (`typesafe/jev-1.13` via OpenRouter Decisions, pass at `noul >= 0.3`) stops genuine non-opportunities before the grounded DeepSeek extraction (`deepseek-flash` via the Responses API, with web search and vision); accepted posts are extracted into a Zod schema and quotes are mechanically verified as substrings of the post.
+- **Routing**: Definitive search for a listed EVM stock or token. Stocks must match an issuer catalog. Tokens keep listed Definitive markets and rank them by liquidity. Cassie then checks an executable buy-and-sell quote and writes an asset-specific plan before the idea is published. Unroutable ideas keep a row with `unrouted_reason`.
 - **Pricing**: entry at post-time is stored as the baseline; current price is fetched live from the selected venue when the feed is read.
 
 ## Setup
 
 ```bash
 bun install
-cp .env.example .env          # fill in Twitter, Gemini, Qwen, and market-data keys
+cp .env.example .env          # fill in Twitter, DeepSeek, Qwen, and market-data keys
 createdb cassie_indexer
 bunx drizzle-kit push
 bun run seed                  # load data/twitter_sources.json into sources
