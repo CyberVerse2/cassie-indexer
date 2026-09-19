@@ -23,10 +23,11 @@ export async function generateQwenJson<T>(options: {
   content: QwenContent;
   schema: z.ZodType<T>;
   maxTokens?: number;
+  webSearch?: boolean;
 }): Promise<T> {
   const response = await fetch(`${config.openrouterBaseUrl.replace(/\/$/, "")}/chat/completions`, {
     method: "POST",
-    signal: AbortSignal.timeout(30_000),
+    signal: AbortSignal.timeout(options.webSearch ? 60_000 : 30_000),
     headers: {
       Authorization: `Bearer ${config.openrouterApiKey}`,
       "Content-Type": "application/json",
@@ -43,6 +44,17 @@ export async function generateQwenJson<T>(options: {
       response_format: { type: "json_object" },
       temperature: 0,
       max_tokens: options.maxTokens ?? 1_024,
+      ...(options.webSearch
+        ? {
+            tools: [
+              {
+                type: "openrouter:web_search",
+                parameters: { max_results: 5, max_uses: 2, search_context_size: "low" },
+              },
+            ],
+            max_tool_calls: 2,
+          }
+        : {}),
     }),
   });
 

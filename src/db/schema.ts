@@ -137,7 +137,7 @@ export const routes = pgTable(
       .references(() => tradeIdeas.id),
     status: text("status", { enum: ["routed", "unrouted"] }).notNull(),
     unroutedReason: text("unrouted_reason"),
-    venue: text("venue", { enum: ["hyperliquid", "polymarket", "equity", "coingecko"] }),
+    venue: text("venue", { enum: ["definitive", "hyperliquid", "polymarket", "equity", "coingecko"] }),
     instrument: text("instrument", { enum: ["perp", "shares", "prediction", "spot"] }),
     ticker: text("ticker"),
     direction: text("direction", { enum: ["long", "short", "yes", "no"] }),
