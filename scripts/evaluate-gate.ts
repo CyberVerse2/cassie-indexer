@@ -384,7 +384,7 @@ function resolveModel(): string {
     case "jev":
       return jevModel;
     case "qwen":
-      return process.env.QWEN_MODEL ?? "qwen/qwen3.6-flash";
+      return process.env.QWEN_MODEL ?? "qwen/qwen3.8-flash";
     default: {
       const _exhaustive: never = gateProvider;
       return _exhaustive;

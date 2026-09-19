@@ -14,7 +14,7 @@ A **trade idea** is a post where the author expresses a directional view on a sp
 
 Two stages decoupled by the DB: a collector failure never loses LLM work, a processor failure never re-hits X, and reprocessing with new extraction logic drains from `raw_posts` without refetching.
 
-- **Gate + extraction**: a high-recall Jev pre-gate (`typesafe/jev-1.13` via OpenRouter Decisions, pass at `noul >= 0.3`) stops genuine non-opportunities before the grounded DeepSeek extraction (`deepseek-flash` via the Responses API, with web search and vision); accepted posts are extracted into a Zod schema and quotes are mechanically verified as substrings of the post.
+- **Gate + extraction**: a high-recall Jev pre-gate (`typesafe/jev-1.13` via OpenRouter Decisions, pass at `noul >= 0.3`) stops genuine non-opportunities before Qwen 3.8 Flash extraction. Qwen searches the web first, then writes the idea JSON. Quotes are mechanically verified as substrings of the post.
 - **Routing**: Definitive search for a listed EVM stock or token. Stocks must match an issuer catalog. Tokens keep listed Definitive markets and rank them by liquidity. Cassie then checks an executable buy-and-sell quote and writes an asset-specific plan before the idea is published. Unroutable ideas keep a row with `unrouted_reason`.
 - **Pricing**: entry at post-time is stored as the baseline; current price is fetched live from the selected venue when the feed is read.
 
@@ -22,7 +22,7 @@ Two stages decoupled by the DB: a collector failure never loses LLM work, a proc
 
 ```bash
 bun install
-cp .env.example .env          # fill in Twitter, DeepSeek, Qwen, and market-data keys
+cp .env.example .env          # fill in Twitter, OpenRouter, and market-data keys
 createdb cassie_indexer
 bunx drizzle-kit push
 bun run seed                  # load data/twitter_sources.json into sources

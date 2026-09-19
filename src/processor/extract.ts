@@ -4,6 +4,7 @@ import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { z } from "zod";
 import { config } from "../config";
 import { generateDeepSeekJson } from "../util/deepseek";
+import { generateQwenJson, generateQwenText, type QwenContent } from "../util/qwen";
 import { jevBoolean } from "../util/jev";
 import { withRetry } from "../util/retry";
 
@@ -352,6 +353,54 @@ function prepareInput(input: ExtractIdeasInput) {
   return { text, images, messages };
 }
 
+function qwenUserContent(text: string, images: string[]): QwenContent {
+  if (images.length === 0) return text;
+  return [
+    { type: "text", text },
+    ...images.map((url) => ({ type: "image_url" as const, image_url: { url } })),
+  ];
+}
+
+async function extractWithQwen(modelId: string, text: string, images: string[]) {
+  let brief = "";
+  let sources: Array<{ sourceType?: string; url?: string; title?: string | null }> = [];
+  try {
+    const research = await withRetry(() =>
+      generateQwenText({
+        model: modelId,
+        system:
+          "Research the market subjects in this post. Return 3-6 short bullets of CURRENT, verifiable facts — what happened, why, key price levels, catalysts, dates. Ground every point in web search; no opinions or trade calls.",
+        content: qwenUserContent(text, images),
+        webSearch: true,
+        maxTokens: 800,
+      }),
+    );
+    brief = research.text;
+    sources = research.references.map((reference) => ({
+      sourceType: "url",
+      url: reference.url,
+      title: reference.title,
+    }));
+  } catch {
+    // grounding is best-effort; fall through to structuring on the post alone
+  }
+
+  const groundedText = brief
+    ? `${text}\n\n[GROUNDED RESEARCH — verified facts to use in the reasoning]:\n${brief}`
+    : text;
+  const extracted = await withRetry(async () => {
+    const raw = await generateQwenJson({
+      model: modelId,
+      system: SYSTEM,
+      content: qwenUserContent(groundedText, images),
+      schema: z.unknown(),
+      maxTokens: 6_000,
+    });
+    return extractionSchema.parse(coerceExtraction(raw));
+  });
+  return { extracted, sources };
+}
+
 export type GateResult = {
   is_idea: boolean;
   reject_reason: string | null;
@@ -396,6 +445,7 @@ export async function extractIdeas(input: ExtractIdeasInput): Promise<Extraction
   }
 
   const modelId = input.model ?? config.extractorModel;
+  const isQwen = modelId.includes("qwen");
   const isDeepSeek = modelId.startsWith("deepseek");
   const isGemini = modelId.startsWith("gemini");
   const schemaOutput = Output.object({ schema: extractionSchema });
@@ -403,7 +453,11 @@ export async function extractIdeas(input: ExtractIdeasInput): Promise<Extraction
   let extracted: z.infer<typeof extractionSchema>;
   let sources: Array<{ sourceType?: string; url?: string; title?: string | null }> = [];
 
-  if (isDeepSeek) {
+  if (isQwen) {
+    const result = await extractWithQwen(modelId, text, images);
+    extracted = result.extracted;
+    sources = result.sources;
+  } else if (isDeepSeek) {
     const result = await withRetry(() =>
       generateDeepSeekJson({
         model: modelId,
