@@ -13,7 +13,10 @@
     "run-once": "bun run src/cli.ts run",
     "daemon": "bun run src/cli.ts daemon",
     "backfill:horizons": "bun run scripts/normalize-horizons.ts",
+    "backfill:definitive": "bun run scripts/backfill-definitive.ts",
+    "test": "bun test",
     "evaluate:gate": "bun run scripts/evaluate-gate.ts",
+    "label:gate": "bun run scripts/label-gate.ts",
     "demo": "bun run scripts/seed-demo.ts"
   },
   "dependencies": {

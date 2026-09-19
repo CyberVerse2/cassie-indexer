@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Idea bench</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Anton&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --void: #14181f;
+      --void-2: #1c222c;
+      --ticket: #efe7d4;
+      --ticket-2: #e4d9c0;
+      --ink: #1a1610;
+      --mute: #6f6a5e;
+      --brass: #b8923a;
+      --idea: #0d5c45;
+      --idea-ink: #e8f4ee;
+      --not: #9c2218;
+      --not-ink: #f8ecea;
+      --rule: #c9b896;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; background: var(--void); color: var(--ticket); }
+    body {
+      font-family: "IBM Plex Sans", sans-serif;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      min-height: 100dvh;
+    }
+    button { font: inherit; cursor: pointer; }
+    a { color: inherit; }
+    :focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
+    @media (prefers-reduced-motion: reduce) {
+      * { transition: none !important; animation: none !important; }
+    }
+
+    .top {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 16px 24px;
+      align-items: end;
+      padding: 18px 22px 12px;
+      border-bottom: 1px solid #2a313c;
+    }
+    .brand {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 18px;
+      align-items: baseline;
+    }
+    .brand h1 {
+      margin: 0;
+      font-family: Anton, sans-serif;
+      font-size: 28px;
+      letter-spacing: 0.06em;
+      font-weight: 400;
+      text-transform: uppercase;
+    }
+    .rule { margin: 0; color: #c8c2b4; font-size: 14px; max-width: 42rem; }
+    .counts {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 12px;
+      letter-spacing: 0.04em;
+      text-align: right;
+      color: #c8c2b4;
+    }
+    .counts strong { color: var(--ticket); font-weight: 500; }
+    .counts .idea { color: #7dcea0; }
+    .counts .not { color: #e39a90; }
+
+    .sheet {
+      display: grid;
+      grid-template-columns: 148px minmax(0, 1fr);
+      gap: 20px;
+      padding: 18px 22px 20px;
+      min-height: 0;
+    }
+    .rail { display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+    .filters { display: flex; flex-wrap: wrap; gap: 6px; }
+    .filters button {
+      border: 1px solid #3a4250;
+      background: transparent;
+      color: #c8c2b4;
+      padding: 4px 8px;
+      font-size: 11px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .filters button[aria-pressed="true"] {
+      background: var(--ticket);
+      color: var(--ink);
+      border-color: var(--ticket);
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(10, 1fr);
+      gap: 3px;
+      padding: 8px;
+      background: var(--void-2);
+      border: 1px dashed #4a3f2a;
+    }
+    .cell {
+      aspect-ratio: 1;
+      border: 0;
+      padding: 0;
+      background: #2a313c;
+      color: #8b8374;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 9px;
+    }
+    .cell.idea { background: var(--idea); color: var(--idea-ink); }
+    .cell.not_idea { background: var(--not); color: var(--not-ink); }
+    .cell.current { box-shadow: inset 0 0 0 2px var(--brass); }
+    .cell.empty { background: #2a313c; }
+
+    .stage { min-width: 0; min-height: 0; display: flex; }
+    .ticket {
+      background: var(--ticket);
+      color: var(--ink);
+      width: min(760px, 100%);
+      margin: 0 auto;
+      padding: 22px 26px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      min-height: 0;
+      box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
+    }
+    .meta {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: baseline;
+      border-bottom: 1px solid var(--rule);
+      padding-bottom: 10px;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 12px;
+    }
+    .handle { font-weight: 500; }
+    .meta a { color: var(--mute); text-decoration: none; }
+    .meta a:hover { color: var(--ink); text-decoration: underline; }
+    .body {
+      margin: 0;
+      font-size: 20px;
+      line-height: 1.45;
+      white-space: pre-wrap;
+      overflow: auto;
+      max-height: min(42vh, 420px);
+    }
+    .body .ticker {
+      background: #d8c48a;
+      color: var(--ink);
+      padding: 0 3px;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.92em;
+    }
+    .quote {
+      margin: 0;
+      padding: 10px 12px;
+      border-left: 3px solid var(--brass);
+      background: var(--ticket-2);
+      color: #3d372c;
+      font-size: 14px;
+      line-height: 1.4;
+      white-space: pre-wrap;
+    }
+    .quote span {
+      display: block;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 10px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--mute);
+      margin-bottom: 6px;
+    }
+    .photos {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 8px;
+    }
+    .photos img {
+      width: 100%;
+      max-height: 220px;
+      object-fit: contain;
+      background: #d9d0ba;
+    }
+    .empty {
+      margin: auto;
+      color: #c8c2b4;
+      text-align: center;
+    }
+
+    .stamps {
+      display: flex;
+      gap: 12px;
+      padding: 0 22px 18px;
+      justify-content: center;
+    }
+    .stamp {
+      min-width: 220px;
+      padding: 16px 20px 12px;
+      border: 3px solid currentColor;
+      background: transparent;
+      text-align: left;
+    }
+    .stamp b {
+      display: block;
+      font-family: Anton, sans-serif;
+      font-size: 34px;
+      letter-spacing: 0.08em;
+      font-weight: 400;
+      line-height: 1;
+    }
+    .stamp small {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 11px;
+      letter-spacing: 0.08em;
+    }
+    .stamp.idea { color: #7dcea0; }
+    .stamp.not { color: #e39a90; }
+    .stamp.idea[aria-pressed="true"] { background: var(--idea); color: var(--idea-ink); border-color: var(--idea); }
+    .stamp.not[aria-pressed="true"] { background: var(--not); color: var(--not-ink); border-color: var(--not); }
+    .keys {
+      text-align: center;
+      padding: 0 22px 16px;
+      color: #8b8374;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 11px;
+      letter-spacing: 0.04em;
+    }
+
+    @media (max-width: 820px) {
+      .sheet { grid-template-columns: 1fr; }
+      .grid { max-width: 280px; }
+      .stamp { min-width: 0; flex: 1; }
+      .stamp b { font-size: 26px; }
+      .body { font-size: 17px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <h1>Idea bench</h1>
+      <p class="rule">Mark <b>Idea</b> if this post can move a price. Mark <b>Not</b> if it is only talk.</p>
+    </div>
+    <div class="counts" id="counts">Loading 100 posts…</div>
+  </header>
+
+  <main class="sheet">
+    <aside class="rail">
+      <div class="filters" role="toolbar" aria-label="Show">
+        <button type="button" data-filter="unlabeled" aria-pressed="true">Open</button>
+        <button type="button" data-filter="all" aria-pressed="false">All</button>
+        <button type="button" data-filter="idea" aria-pressed="false">Idea</button>
+        <button type="button" data-filter="not_idea" aria-pressed="false">Not</button>
+      </div>
+      <div class="grid" id="grid" aria-label="100 posts"></div>
+    </aside>
+    <section class="stage" id="stage" aria-live="polite"></section>
+  </main>
+
+  <footer>
+    <div class="stamps">
+      <button class="stamp idea" type="button" id="mark-idea" aria-pressed="false">
+        <b>Idea</b>
+        <small>1 · J · Y</small>
+      </button>
+      <button class="stamp not" type="button" id="mark-not" aria-pressed="false">
+        <b>Not</b>
+        <small>2 · K · N</small>
+      </button>
+    </div>
+    <p class="keys">← → move · Space next open · U clear</p>
+  </footer>
+
+  <script>
+    const state = {
+      posts: [],
+      labels: {},
+      index: 0,
+      filter: "unlabeled",
+    };
+
+    const $ = (id) => document.getElementById(id);
+    const escapeHtml = (value) =>
+      String(value).replace(/[&<>"']/g, (ch) => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;",
+      })[ch]);
+
+    const renderText = (value) =>
+      escapeHtml(value).replace(/\$[A-Z]{1,6}\b/g, (match) => `<mark class="ticker">${match}</mark>`);
+
+    const formatWhen = (iso) => {
+      const date = new Date(iso);
+      return date.toLocaleString("en-GB", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    };
+
+    const visiblePosts = () => {
+      if (state.filter === "all") return state.posts;
+      if (state.filter === "unlabeled") return state.posts.filter((post) => !state.labels[post.tweetId]);
+      return state.posts.filter((post) => state.labels[post.tweetId] === state.filter);
+    };
+
+    const currentPost = () => {
+      const list = visiblePosts();
+      if (!list.length) return null;
+      state.index = Math.max(0, Math.min(state.index, list.length - 1));
+      return list[state.index];
+    };
+
+    const counts = () => {
+      const values = Object.values(state.labels);
+      return {
+        idea: values.filter((label) => label === "idea").length,
+        not: values.filter((label) => label === "not_idea").length,
+        labeled: values.length,
+        total: state.posts.length,
+      };
+    };
+
+    function renderCounts() {
+      const { idea, not, labeled, total } = counts();
+      const open = total - labeled;
+      $("counts").innerHTML =
+        labeled === total
+          ? `<strong>100 of 100 labeled.</strong> This set is the benchmark.<br><span class="idea">${idea} idea</span> · <span class="not">${not} not</span>`
+          : `<strong>${labeled} of ${total}</strong> labeled · ${open} open<br><span class="idea">${idea} idea</span> · <span class="not">${not} not</span>`;
+    }
+
+    function renderGrid() {
+      $("grid").innerHTML = state.posts
+        .map((post, i) => {
+          const label = state.labels[post.tweetId] ?? "empty";
+          const current = currentPost()?.tweetId === post.tweetId ? " current" : "";
+          return `<button type="button" class="cell ${label}${current}" data-id="${post.tweetId}" title="@${post.handle}">${String(i + 1).padStart(2, "0")}</button>`;
+        })
+        .join("");
+    }
+
+    function renderStage() {
+      const post = currentPost();
+      const stage = $("stage");
+      if (!post) {
+        const done = counts().labeled === state.posts.length;
+        stage.innerHTML = `<p class="empty">${done ? "100 of 100 labeled. This set is the benchmark." : "No posts in this view."}</p>`;
+        $("mark-idea").ariaPressed = "false";
+        $("mark-not").ariaPressed = "false";
+        return;
+      }
+      const label = state.labels[post.tweetId];
+      const photos = (post.imageUrls || [])
+        .map((url) => `<img src="/img?u=${encodeURIComponent(url)}" alt="" />`)
+        .join("");
+      stage.innerHTML = `
+        <article class="ticket">
+          <div class="meta">
+            <span class="handle">@${escapeHtml(post.handle)}</span>
+            <span>${formatWhen(post.postedAt)} · <a href="${escapeHtml(post.url)}" target="_blank" rel="noreferrer">Open post</a></span>
+          </div>
+          <p class="body">${renderText(post.text)}</p>
+          ${post.referencedText ? `<blockquote class="quote"><span>${post.isQuote ? "Quoted post" : "Referenced post"}</span>${renderText(post.referencedText)}</blockquote>` : ""}
+          ${photos ? `<div class="photos">${photos}</div>` : ""}
+        </article>`;
+      $("mark-idea").ariaPressed = label === "idea" ? "true" : "false";
+      $("mark-not").ariaPressed = label === "not_idea" ? "true" : "false";
+    }
+
+    function render() {
+      renderCounts();
+      renderGrid();
+      renderStage();
+    }
+
+    async function saveLabel(label) {
+      const post = currentPost();
+      if (!post) return;
+      if (label) state.labels[post.tweetId] = label;
+      else delete state.labels[post.tweetId];
+      render();
+      const response = await fetch("/api/label", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tweetId: post.tweetId, label }),
+      });
+      if (!response.ok) {
+        $("counts").textContent = "Could not save the label. Try again.";
+        return;
+      }
+      const file = await response.json();
+      state.labels = file.labels;
+      if (state.filter === "unlabeled" && label) {
+        const list = visiblePosts();
+        if (state.index >= list.length) state.index = Math.max(0, list.length - 1);
+      } else if (label) {
+        move(1);
+      }
+      render();
+    }
+
+    function nextOpen() {
+      const currentId = currentPost()?.tweetId;
+      const start = Math.max(0, state.posts.findIndex((post) => post.tweetId === currentId));
+      for (let i = 1; i <= state.posts.length; i += 1) {
+        const post = state.posts[(start + i) % state.posts.length];
+        if (!state.labels[post.tweetId]) {
+          jumpTo(post.tweetId);
+          return;
+        }
+      }
+    }
+
+    function move(step) {
+      const list = visiblePosts();
+      if (!list.length) return;
+      state.index = (state.index + step + list.length) % list.length;
+      render();
+    }
+
+    function jumpTo(tweetId) {
+      const post = state.posts.find((item) => item.tweetId === tweetId);
+      if (!post) return;
+      const label = state.labels[tweetId];
+      if (state.filter === "unlabeled" && label) state.filter = "all";
+      if (state.filter === "idea" && label !== "idea") state.filter = "all";
+      if (state.filter === "not_idea" && label !== "not_idea") state.filter = "all";
+      document.querySelectorAll("[data-filter]").forEach((button) => {
+        button.setAttribute("aria-pressed", button.dataset.filter === state.filter ? "true" : "false");
+      });
+      const list = visiblePosts();
+      state.index = Math.max(0, list.findIndex((item) => item.tweetId === tweetId));
+      render();
+    }
+
+    $("mark-idea").addEventListener("click", () => saveLabel("idea"));
+    $("mark-not").addEventListener("click", () => saveLabel("not_idea"));
+    $("grid").addEventListener("click", (event) => {
+      const button = event.target.closest("[data-id]");
+      if (button) jumpTo(button.dataset.id);
+    });
+    document.querySelector(".filters").addEventListener("click", (event) => {
+      const button = event.target.closest("[data-filter]");
+      if (!button) return;
+      state.filter = button.dataset.filter;
+      state.index = 0;
+      document.querySelectorAll("[data-filter]").forEach((item) => {
+        item.setAttribute("aria-pressed", item === button ? "true" : "false");
+      });
+      render();
+    });
+
+    window.addEventListener("keydown", (event) => {
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      const key = event.key.toLowerCase();
+      if (key === "1" || key === "j" || key === "y") { event.preventDefault(); saveLabel("idea"); }
+      else if (key === "2" || key === "k" || key === "n") { event.preventDefault(); saveLabel("not_idea"); }
+      else if (key === "arrowleft") { event.preventDefault(); move(-1); }
+      else if (key === "arrowright") { event.preventDefault(); move(1); }
+      else if (key === " ") { event.preventDefault(); nextOpen(); }
+      else if (key === "u" || key === "backspace") { event.preventDefault(); saveLabel(null); }
+    });
+
+    async function boot() {
+      try {
+        const [postsFile, labelsFile] = await Promise.all([
+          fetch("/posts.json").then((response) => {
+            if (!response.ok) throw new Error("Could not load posts");
+            return response.json();
+          }),
+          fetch("/labels.json").then((response) => {
+            if (!response.ok) throw new Error("Could not load labels");
+            return response.json();
+          }),
+        ]);
+        state.posts = postsFile.posts;
+        state.labels = labelsFile.labels || {};
+        render();
+      } catch (error) {
+        $("counts").textContent = error instanceof Error ? error.message : "Could not load posts.";
+      }
+    }
+    boot();
+  </script>
+</body>
+</html>
