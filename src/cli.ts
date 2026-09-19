@@ -1,4 +1,4 @@
-import { collectAll } from "./collector/collect";
+import { collectAll, LIVE_WINDOW_MINUTES } from "./collector/collect";
 import { processPending } from "./processor/process";
 import { closeDb } from "./db/client";
 import { config } from "./config";
@@ -7,12 +7,27 @@ async function runOnce() {
   const started = new Date();
   const collected = await collectAll();
   console.log(
-    `[collect] done: ${collected.fetched} posts from ${collected.sources} sources (${collected.errors} errors)`,
+    `[collect] done: ${collected.fetched} posts from ${collected.sources} sources (${collected.errors} errors) window=${collected.windowMinutes}m`,
   );
-  const p = await processPending({ fetched: started });
+  const p = collected.windowMinutes > LIVE_WINDOW_MINUTES
+    ? await drainPending()
+    : await processPending({ fetched: started });
   console.log(
     `[process] done: ${p.posts} posts → ${p.ideas} ideas (${p.routed} routed, ${p.failed} failed)`,
   );
+}
+
+async function drainPending() {
+  const total = { posts: 0, ideas: 0, routed: 0, failed: 0 };
+  for (let i = 0; i < 40; i++) {
+    const p = await processPending();
+    total.posts += p.posts;
+    total.ideas += p.ideas;
+    total.routed += p.routed;
+    total.failed += p.failed;
+    if (p.posts === 0) break;
+  }
+  return total;
 }
 
 async function main() {

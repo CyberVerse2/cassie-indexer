@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, min } from "drizzle-orm";
 import { db, schema } from "../db/client";
 import { searchTweets, toSinceOperator, type TApiTweet } from "./twitterapi";
 
@@ -9,8 +9,10 @@ type Source = typeof sources.$inferSelect;
 // caps length (~512 chars); "from:handle OR " averages ~20 chars, so 20 leaves
 // headroom for the since: clause. 80 handles → ~4 queries per cycle.
 const BATCH_SIZE = 20;
-const COLLECTION_WINDOW_MINUTES = 5;
-const MAX_PAGES_PER_BATCH = 10;
+export const LIVE_WINDOW_MINUTES = 5;
+export const FIRST_WINDOW_MINUTES = 24 * 60;
+const MAX_PAGES_LIVE = 10;
+const MAX_PAGES_FIRST = 25;
 
 /**
  * Stage 1 — Collector (twitterapi.io advanced_search).
@@ -18,18 +20,32 @@ const MAX_PAGES_PER_BATCH = 10;
  * returns ONLY tweets newer than what we already have — so cost scales with new
  * tweets, not poll frequency. Lands them in raw_posts (idempotent on tweet_id).
  */
-export async function collectAll(windowMinutes = COLLECTION_WINDOW_MINUTES): Promise<{ fetched: number; sources: number; errors: number }> {
+export function collectionWindowMinutes(oldestPostedAt: Date | null, now = new Date()): number {
+  if (!oldestPostedAt || now.getTime() - oldestPostedAt.getTime() < 20 * 60 * 60 * 1000) {
+    return FIRST_WINDOW_MINUTES;
+  }
+  return LIVE_WINDOW_MINUTES;
+}
+
+export async function collectAll(windowMinutes?: number): Promise<{
+  fetched: number;
+  sources: number;
+  errors: number;
+  windowMinutes: number;
+}> {
   const tracked = await db.select().from(sources).where(eq(sources.tracked, true));
   const byHandle = new Map(tracked.map((s) => [s.handle.toLowerCase(), s]));
-
-  const since = new Date(Date.now() - windowMinutes * 60_000);
+  const [coverage] = await db.select({ oldest: min(rawPosts.postedAt) }).from(rawPosts);
+  const minutes = windowMinutes ?? collectionWindowMinutes(coverage.oldest ? new Date(coverage.oldest) : null);
+  const since = new Date(Date.now() - minutes * 60_000);
+  const maxPages = minutes > LIVE_WINDOW_MINUTES ? MAX_PAGES_FIRST : MAX_PAGES_LIVE;
 
   let fetched = 0;
   let errors = 0;
 
   for (const batch of chunk(tracked, BATCH_SIZE)) {
     try {
-      fetched += await collectBatch(batch, since, byHandle);
+      fetched += await collectBatch(batch, since, byHandle, maxPages);
     } catch (err) {
       errors++;
       const message = err instanceof Error ? err.message : String(err);
@@ -42,13 +58,14 @@ export async function collectAll(windowMinutes = COLLECTION_WINDOW_MINUTES): Pro
     .set({ lastPolledAt: new Date() })
     .where(eq(sources.tracked, true));
 
-  return { fetched, sources: tracked.length, errors };
+  return { fetched, sources: tracked.length, errors, windowMinutes: minutes };
 }
 
 async function collectBatch(
   batch: Source[],
   since: Date,
   byHandle: Map<string, Source>,
+  maxPages: number,
 ): Promise<number> {
   // Exclude replies-to-others AT THE API (we discard them anyway) while keeping
   // self-threads: `-filter:replies OR filter:self_threads`. Cuts ~30% of fetched
@@ -58,7 +75,7 @@ async function collectBatch(
   let cursor = "";
   let inserted = 0;
 
-  for (let page = 0; page < MAX_PAGES_PER_BATCH; page++) {
+  for (let page = 0; page < maxPages; page++) {
     const { tweets, hasNextPage, nextCursor } = await searchTweets({ query, cursor });
     if (tweets.length === 0) break;
 
@@ -71,7 +88,7 @@ async function collectBatch(
 
     if (!hasNextPage) break;
     cursor = nextCursor;
-    if (page === MAX_PAGES_PER_BATCH - 1) {
+    if (page === maxPages - 1) {
       // Hit the cap with more pages available — the watermark will advance past
       // the unread older tweets, leaving a gap. Fine at steady cadence; a signal
       // to poll more often if it recurs.
